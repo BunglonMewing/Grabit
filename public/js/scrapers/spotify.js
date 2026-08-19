@@ -91,36 +91,67 @@ export async function scrapeSpotify(url) {
         throw new Error("No tracks found from SoundLoaders.");
       }
 
-      // Step 4: fetch download URL for first track
-      const track = parsed.tracks[0];
-      const dlRes = await scraperFetch(
-        {
-          url: BASE + "/action/tracks",
-          method: "POST",
-          data: serializeData({
-            data: track.data,
-            track_token: track.trackToken,
-          }),
-          headers: formHeaders,
-          rawResponse: true,
-        },
-        "SoundLoaders Download",
-      );
-      let dd =
-        typeof dlRes.data === "string" ? JSON.parse(dlRes.data) : dlRes.data;
-      let dlHtml = "";
-      if (dd?.status === true && dd?.html) dlHtml = dd.html;
+      // Instant Playlist Parsing (Instant < 1s UI response)
+      const downloads = [];
+      const isPlaylistOrAlbum = parsed.tracks.length > 1;
 
-      const downloads = dlHtml ? parseSoundloadersDownloads(dlHtml) : [];
+      for (let i = 0; i < parsed.tracks.length; i++) {
+        const track = parsed.tracks[i];
+        const prefix = isPlaylistOrAlbum ? `${(i + 1).toString().padStart(2, "0")}. ` : "";
+        const trackLabel = track.artist ? `${track.artist} - ${track.title}` : track.title;
+
+        if (i === 0 && !isPlaylistOrAlbum) {
+          // Single track: fetch direct download URL immediately
+          try {
+            const dlRes = await scraperFetch(
+              {
+                url: BASE + "/action/tracks",
+                method: "POST",
+                data: serializeData({
+                  data: track.data,
+                  track_token: track.trackToken,
+                }),
+                headers: formHeaders,
+                rawResponse: true,
+              },
+              "SoundLoaders Download",
+            );
+            let dd = typeof dlRes.data === "string" ? JSON.parse(dlRes.data) : dlRes.data;
+            let dlHtml = dd?.html || "";
+            const trackDls = dlHtml ? parseSoundloadersDownloads(dlHtml) : [];
+            trackDls.forEach((td) => {
+              downloads.push({
+                ...td,
+                type: `${prefix}${trackLabel} [MP3]`,
+              });
+            });
+          } catch (e) {}
+        }
+
+        // Lazy resolve fallback for playlist items
+        if (downloads.length === 0 || isPlaylistOrAlbum) {
+          downloads.push({
+            type: `${prefix}${trackLabel} [MP3]`,
+            url: `soundloaders_resolve:${track.data}|||${track.trackToken}`,
+          });
+        }
+      }
+
       if (downloads.length === 0) {
         throw new Error("No download links found from SoundLoaders.");
       }
 
+      const typeSuffix =
+        parsed.type === "playlist"
+          ? " (Playlist)"
+          : parsed.type === "album"
+            ? " (Album)"
+            : "";
       _spSource = null;
       return createScraperResult(true, {
         title: parsed.artist
-          ? `${parsed.artist} - ${parsed.title}`
-          : parsed.title,
+          ? `${parsed.artist} - ${parsed.title}${typeSuffix}`
+          : `${parsed.title}${typeSuffix}`,
         thumbnail: parsed.thumbnail,
         downloads,
         sourceUrl: url,
@@ -182,9 +213,22 @@ export async function scrapeSpotify(url) {
 
     let finalHtml = r2Data.data || r2Data;
     const doc2 = parser.parseFromString(finalHtml, "text/html");
-    const form2 = doc2.querySelector('form[name="submitspurl"]');
+    const forms2 = doc2.querySelectorAll('form[name="submitspurl"]');
 
-    if (form2) {
+    const downloads = [];
+    const r3Headers = {
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "User-Agent": CHROME_UA,
+      Origin: "https://spotidown.app",
+      Referer: "https://spotidown.app/",
+      "X-Requested-With": "XMLHttpRequest",
+    };
+    if (cookies) r3Headers["Cookie"] = cookies;
+
+    const isMultiTrack = forms2.length > 1;
+
+    for (let i = 0; i < forms2.length; i++) {
+      const form2 = forms2[i];
       const data2 = {};
       form2.querySelectorAll("input").forEach((input) => {
         const name = input.getAttribute("name");
@@ -192,59 +236,88 @@ export async function scrapeSpotify(url) {
         if (name) data2[name] = value;
       });
       data2["g-recaptcha-response"] = "dummy_token";
+      const payloadStr = serializeData(data2);
 
-      const r3Headers = {
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "User-Agent": CHROME_UA,
-        Origin: "https://spotidown.app",
-        Referer: "https://spotidown.app/",
-        "X-Requested-With": "XMLHttpRequest",
-      };
-      if (cookies) r3Headers["Cookie"] = cookies;
-
-      const r3 = await scraperFetch(
-        {
-          url: "https://spotidown.app/action/track",
-          method: "POST",
-          data: serializeData(data2),
-          headers: r3Headers,
-          rawResponse: true,
-        },
-        "SpotiDown Track",
-      );
-
-      let r3Data = r3.data;
-      if (typeof r3Data === "string") {
+      const prefix = isMultiTrack ? `${(i + 1).toString().padStart(2, "0")}. ` : "";
+      
+      // Extract track title from base64 data input or form container
+      let itemTitle = "";
+      const dataVal = form2.querySelector('input[name="data"]')?.value;
+      if (dataVal) {
         try {
-          r3Data = JSON.parse(r3Data);
+          const dec = JSON.parse(atob(dataVal));
+          const name = dec.name || dec.title || "";
+          const artist = dec.artist || dec.singer || "";
+          if (artist && name) itemTitle = `${artist} - ${name}`;
+          else if (name) itemTitle = name;
         } catch (e) {}
       }
-      finalHtml = r3Data.data || r3Data;
-    }
-
-    const doc3 = parser.parseFromString(finalHtml, "text/html");
-    const title =
-      doc3.querySelector("h3")?.textContent?.trim() || "Spotify Track";
-    const artist = doc3.querySelector("p")?.textContent?.trim();
-    const thumbnail = doc3.querySelector("img")?.getAttribute("src");
-    const downloads = [];
-
-    doc3.querySelectorAll("a").forEach((a) => {
-      const link = a.getAttribute("href");
-      const text = a.textContent.trim();
-      if (
-        link &&
-        link.startsWith("http") &&
-        !link.includes("premium.html") &&
-        text !== "Download Another Song"
-      ) {
-        downloads.push({ type: text || "MP3", url: link });
+      if (!itemTitle) {
+        const container = form2.closest(".col-md-4, .col-sm-6, .card, .row, div") || form2.parentElement;
+        if (container) {
+          const h = container.querySelector("h3, h4, h5, .title, p");
+          if (h && h.textContent.trim()) itemTitle = h.textContent.trim();
+        }
       }
-    });
+
+      if (i === 0 && !isMultiTrack) {
+        // Fetch track 1 immediately for single track
+        try {
+          const r3 = await scraperFetch(
+            {
+              url: "https://spotidown.app/action/track",
+              method: "POST",
+              data: payloadStr,
+              headers: r3Headers,
+              rawResponse: true,
+            },
+            "SpotiDown Track",
+          );
+          let r3Data = r3.data;
+          if (typeof r3Data === "string") {
+            try { r3Data = JSON.parse(r3Data); } catch (e) {}
+          }
+          const trackHtml = r3Data.data || r3Data;
+          const doc3 = parser.parseFromString(trackHtml, "text/html");
+
+          doc3.querySelectorAll("a").forEach((a) => {
+            const link = a.getAttribute("href");
+            const text = a.textContent.trim();
+            if (
+              link &&
+              link.startsWith("http") &&
+              !link.includes("premium.html") &&
+              text !== "Download Another Song"
+            ) {
+              const trackTitle = doc3.querySelector("h3")?.textContent?.trim() || "";
+              const artist = doc3.querySelector("p")?.textContent?.trim() || "";
+              const fullLabel = artist && trackTitle ? `${artist} - ${trackTitle}` : trackTitle || text || "MP3";
+              downloads.push({
+                type: `${prefix}${fullLabel} [MP3]`,
+                url: link,
+              });
+            }
+          });
+        } catch (e) {}
+      }
+
+      // Add lazy resolver link for playlist items or fallback
+      if (downloads.length === 0 || isMultiTrack) {
+        downloads.push({
+          type: `${prefix}${itemTitle || "Track " + (i + 1)} [MP3]`,
+          url: `spotidown_resolve:${payloadStr}`,
+        });
+      }
+    }
 
     if (downloads.length === 0) {
       throw new Error("No download links found from SpotiDown.");
     }
+
+    const title =
+      doc2.querySelector("h3")?.textContent?.trim() || "Spotify Track";
+    const artist = doc2.querySelector("p")?.textContent?.trim();
+    const thumbnail = doc2.querySelector("img")?.getAttribute("src");
 
     _spSource = null;
     return createScraperResult(true, {
