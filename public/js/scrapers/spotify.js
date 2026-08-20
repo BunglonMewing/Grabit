@@ -97,8 +97,12 @@ export async function scrapeSpotify(url) {
 
       for (let i = 0; i < parsed.tracks.length; i++) {
         const track = parsed.tracks[i];
-        const prefix = isPlaylistOrAlbum ? `${(i + 1).toString().padStart(2, "0")}. ` : "";
-        const trackLabel = track.artist ? `${track.artist} - ${track.title}` : track.title;
+        const prefix = isPlaylistOrAlbum
+          ? `${(i + 1).toString().padStart(String(parsed.tracks.length).length, "0")}. `
+          : "";
+        const trackLabel = track.artist
+          ? `${track.artist} - ${track.title}`
+          : track.title;
 
         if (i === 0 && !isPlaylistOrAlbum) {
           // Single track: fetch direct download URL immediately
@@ -116,7 +120,10 @@ export async function scrapeSpotify(url) {
               },
               "SoundLoaders Download",
             );
-            let dd = typeof dlRes.data === "string" ? JSON.parse(dlRes.data) : dlRes.data;
+            let dd =
+              typeof dlRes.data === "string"
+                ? JSON.parse(dlRes.data)
+                : dlRes.data;
             let dlHtml = dd?.html || "";
             const trackDls = dlHtml ? parseSoundloadersDownloads(dlHtml) : [];
             trackDls.forEach((td) => {
@@ -238,8 +245,10 @@ export async function scrapeSpotify(url) {
       data2["g-recaptcha-response"] = "dummy_token";
       const payloadStr = serializeData(data2);
 
-      const prefix = isMultiTrack ? `${(i + 1).toString().padStart(2, "0")}. ` : "";
-      
+      const prefix = isMultiTrack
+        ? `${(i + 1).toString().padStart(String(forms2.length).length, "0")}. `
+        : "";
+
       // Extract track title from base64 data input or form container
       let itemTitle = "";
       const dataVal = form2.querySelector('input[name="data"]')?.value;
@@ -253,7 +262,9 @@ export async function scrapeSpotify(url) {
         } catch (e) {}
       }
       if (!itemTitle) {
-        const container = form2.closest(".col-md-4, .col-sm-6, .card, .row, div") || form2.parentElement;
+        const container =
+          form2.closest(".col-md-4, .col-sm-6, .card, .row, div") ||
+          form2.parentElement;
         if (container) {
           const h = container.querySelector("h3, h4, h5, .title, p");
           if (h && h.textContent.trim()) itemTitle = h.textContent.trim();
@@ -275,7 +286,9 @@ export async function scrapeSpotify(url) {
           );
           let r3Data = r3.data;
           if (typeof r3Data === "string") {
-            try { r3Data = JSON.parse(r3Data); } catch (e) {}
+            try {
+              r3Data = JSON.parse(r3Data);
+            } catch (e) {}
           }
           const trackHtml = r3Data.data || r3Data;
           const doc3 = parser.parseFromString(trackHtml, "text/html");
@@ -289,9 +302,13 @@ export async function scrapeSpotify(url) {
               !link.includes("premium.html") &&
               text !== "Download Another Song"
             ) {
-              const trackTitle = doc3.querySelector("h3")?.textContent?.trim() || "";
+              const trackTitle =
+                doc3.querySelector("h3")?.textContent?.trim() || "";
               const artist = doc3.querySelector("p")?.textContent?.trim() || "";
-              const fullLabel = artist && trackTitle ? `${artist} - ${trackTitle}` : trackTitle || text || "MP3";
+              const fullLabel =
+                artist && trackTitle
+                  ? `${artist} - ${trackTitle}`
+                  : trackTitle || text || "MP3";
               downloads.push({
                 type: `${prefix}${fullLabel} [MP3]`,
                 url: link,

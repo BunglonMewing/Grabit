@@ -83,11 +83,18 @@ export async function scrapeYouTube(url) {
               "ytmp3.gg Status",
             );
             attempts++;
-            if (pollData && pollData.status === "completed" && pollData.downloadUrl) {
+            if (
+              pollData &&
+              pollData.status === "completed" &&
+              pollData.downloadUrl
+            ) {
               downloadUrl = pollData.downloadUrl;
               break;
             }
-            if (pollData && (pollData.status === "error" || pollData.status === "failed"))
+            if (
+              pollData &&
+              (pollData.status === "error" || pollData.status === "failed")
+            )
               break;
           }
           return downloadUrl
@@ -117,7 +124,11 @@ export async function scrapeYouTube(url) {
 
       if (downloads.length > 0) {
         _ytSource = null;
-        return createScraperResult(true, { ...meta, downloads, sourceUrl: url });
+        return createScraperResult(true, {
+          ...meta,
+          downloads,
+          sourceUrl: url,
+        });
       }
 
       console.warn("[ytmp3.gg] Failed, falling back to ytmp3.mobi...");

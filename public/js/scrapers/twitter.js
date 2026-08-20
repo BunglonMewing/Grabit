@@ -216,7 +216,9 @@ export async function scrapeTwitter(url) {
                 label === "PHOTO";
               const isMirror = isImg
                 ? false
-                : downloads.some((d) => d.type !== "IMAGE" && d.type !== "PHOTO");
+                : downloads.some(
+                    (d) => d.type !== "IMAGE" && d.type !== "PHOTO",
+                  );
               downloads.push({ type: label, url: dlUrl, isMirror });
             }
           }
