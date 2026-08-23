@@ -1,5 +1,6 @@
 import { CHROME_UA } from "../utils/index.js";
 import { scraperFetch, createScraperResult } from "./httpHelper.js";
+import { t } from "../modules/core.js";
 
 export let _ytSource = null;
 export function setYouTubeSource(src) {
@@ -9,16 +10,28 @@ export function setYouTubeSource(src) {
 export async function scrapeYouTube(url) {
   let currentStatus = null;
   try {
-    const videoId = url.match(
+    const videoMatch = url.match(
       /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i,
-    )?.[1];
-    if (!videoId) throw new Error("Invalid YouTube URL");
+    );
+    const playlistMatch = url.match(/[?&]list=([^"&?\/\s]+)/i);
+
+    const videoId = videoMatch?.[1];
+    const playlistId = playlistMatch?.[1];
+    const isPlaylist = !!playlistId && !videoId;
+
+    if (!videoId && !playlistId) throw new Error("Invalid YouTube URL");
+    
+    if (isPlaylist && _ytSource && _ytSource !== "gg") {
+      throw new Error(t("err-yt-playlist-source"));
+    }
 
     if (!_ytSource) return { requireSource: true };
 
     const oembed = async () => {
-      let title = "YouTube Video";
-      let thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+      let title = isPlaylist ? "YouTube Playlist" : "YouTube Video";
+      let thumbnail = isPlaylist ? "https://www.youtube.com/img/desktop/yt_1200.png" : `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+      if (isPlaylist) return { title, thumbnail };
+      
       try {
         const oData = await scraperFetch(
           {
@@ -43,6 +56,41 @@ export async function scrapeYouTube(url) {
         "User-Agent": CHROME_UA,
         Accept: "application/json, text/plain, */*",
       };
+
+      if (isPlaylist) {
+        const plRes = await scraperFetch(
+          {
+            url: `https://yt-meta.convert1s.com/playlist?id=${playlistId}`,
+            headers: {
+              Origin: "https://media.ytmp3.gg",
+              Referer: "https://media.ytmp3.gg/",
+              "User-Agent": CHROME_UA,
+            },
+          },
+          "ytmp3.gg Playlist",
+        );
+        if (plRes && plRes.items && plRes.items.length > 0) {
+          const downloads = [];
+          plRes.items.forEach((item, index) => {
+            const prefix = `${(index + 1).toString().padStart(String(plRes.items.length).length, "0")}. `;
+            const trackLabel = item.channel ? `${item.channel} - ${item.title}` : item.title;
+            downloads.push({
+              type: `${prefix}${trackLabel}`,
+              url: `ytmp3gg_resolve:${item.id}|||mp3|||128`,
+              ext: "mp3",
+            });
+          });
+          _ytSource = null;
+          return createScraperResult(true, {
+            title: plRes.items[0].channel ? `${plRes.items[0].channel} - YouTube Playlist` : "YouTube Playlist",
+            thumbnail: plRes.items[0].thumbnail || meta.thumbnail,
+            downloads,
+            sourceUrl: url,
+          });
+        }
+        throw new Error("Failed to extract YouTube playlist. The playlist might be private or empty.");
+      }
+
       const runConvert = async (format, quality) => {
         try {
           const convRes = await scraperFetch(

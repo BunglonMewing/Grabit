@@ -2,6 +2,7 @@ import {
   CHROME_UA,
   getCookiesFromHeaders,
   serializeData,
+  cleanUrl,
 } from "../utils/index.js";
 import { scraperFetch, createScraperResult } from "./httpHelper.js";
 
@@ -13,6 +14,47 @@ export function setSpotifySource(source) {
 export async function scrapeSpotify(url) {
   if (!_spSource) {
     return { status: true, requireSource: true };
+  }
+
+  if (url.match(/spotify\.com\/s\//i)) {
+    try {
+      const resolveRes = await scraperFetch(
+        {
+          url: url,
+          headers: { "User-Agent": "WhatsApp/2.21.19.21 A" },
+          rawResponse: true,
+        },
+        "Spotify Link Resolver",
+      );
+      if (resolveRes) {
+        if (resolveRes.url && !resolveRes.url.match(/spotify\.com\/s\//i)) {
+          url = cleanUrl(resolveRes.url);
+        } else if (resolveRes.data) {
+          const htmlData =
+            typeof resolveRes.data === "string"
+              ? resolveRes.data
+              : JSON.stringify(resolveRes.data);
+          const ogMatch = htmlData.match(/<meta property="og:url" content="([^"]+)"/i);
+          if (ogMatch && ogMatch[1]) {
+            url = cleanUrl(ogMatch[1]);
+          } else {
+            const schemeMatch = htmlData.match(/<script id="urlSchemeConfig" type="text\/plain">([^<]+)<\/script>/);
+            if (schemeMatch && schemeMatch[1]) {
+              try {
+                let b64 = schemeMatch[1];
+                b64 = b64.padEnd(b64.length + (4 - (b64.length % 4)) % 4, "=");
+                const decoded = JSON.parse(atob(b64));
+                if (decoded && decoded.redirectUrl) {
+                  url = cleanUrl(decoded.redirectUrl);
+                }
+              } catch (err) {}
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to resolve Spotify short link", e);
+    }
   }
 
   let currentStatus = null;
@@ -309,8 +351,12 @@ export async function scrapeSpotify(url) {
                 artist && trackTitle
                   ? `${artist} - ${trackTitle}`
                   : trackTitle || text || "MP3";
+                  
+              const isCover = text.toLowerCase().includes("cover") || link.includes("cover");
+              const typeLabel = isCover ? "[Cover]" : "[MP3]";
+              
               downloads.push({
-                type: `${prefix}${fullLabel} [MP3]`,
+                type: `${prefix}${fullLabel} ${typeLabel}`,
                 url: link,
               });
             }
@@ -322,7 +368,7 @@ export async function scrapeSpotify(url) {
       if (downloads.length === 0 || isMultiTrack) {
         downloads.push({
           type: `${prefix}${itemTitle || "Track " + (i + 1)} [MP3]`,
-          url: `spotidown_resolve:${payloadStr}`,
+          url: `spotidown_resolve:${payloadStr}|||${encodeURIComponent(cookies || "")}`,
         });
       }
     }
@@ -452,8 +498,14 @@ function parseSoundloadersDownloads(html) {
       !link.includes("tunecable.com") &&
       !link.includes("premium")
     ) {
+      const isCover = text.toLowerCase().includes("cover") || 
+                      link.includes("cover") || 
+                      link.includes("scdn.co") || 
+                      link.match(/\.(jpg|jpeg|png|webp)(\?.*)?$/i);
+      const typeLabel = isCover ? "[Cover]" : "[MP3]";
+      
       downloads.push({
-        type: text || "Download MP3",
+        type: `${text || "Download"} ${typeLabel}`,
         url: link,
       });
     }
