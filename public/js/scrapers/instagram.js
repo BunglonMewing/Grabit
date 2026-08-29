@@ -176,9 +176,13 @@ async function scrapeSnapSave(cleanUrl) {
       htmlContent = rawData;
     } else if (typeof rawData === "string") {
       try {
-        const codeToRun = rawData.replace(/\beval\s*\(\s*function/g, "(function");
+        const codeToRun = rawData.replace(
+          /\beval\s*\(\s*function/g,
+          "(function",
+        );
         const unpackedScript = (0, eval)(codeToRun);
-        htmlContent = extractFromScriptStr(unpackedScript) || extractFromScriptStr(rawData);
+        htmlContent =
+          extractFromScriptStr(unpackedScript) || extractFromScriptStr(rawData);
       } catch (evalErr) {
         console.warn("[SnapSave] Unpack JS failed:", evalErr);
         htmlContent = extractFromScriptStr(rawData);
@@ -192,7 +196,12 @@ async function scrapeSnapSave(cleanUrl) {
 
       const getIsImageFromUrlOrText = (urlStr, textStr) => {
         const combined = (urlStr + " " + textStr).toUpperCase();
-        if (combined.includes("PHOTO") || combined.includes("GAMBAR") || combined.includes("IMAGE") || combined.includes("ICON-DLIMAGE")) {
+        if (
+          combined.includes("PHOTO") ||
+          combined.includes("GAMBAR") ||
+          combined.includes("IMAGE") ||
+          combined.includes("ICON-DLIMAGE")
+        ) {
           return true;
         }
         if (combined.includes("VIDEO") || combined.includes("ICON-DLVIDEO")) {
@@ -200,7 +209,9 @@ async function scrapeSnapSave(cleanUrl) {
         }
 
         try {
-          const match = urlStr.match(/token=([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/);
+          const match = urlStr.match(
+            /token=([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/,
+          );
           if (match) {
             const payloadB64 = match[1].split(".")[1];
             const base64 = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
@@ -230,11 +241,16 @@ async function scrapeSnapSave(cleanUrl) {
         const key = href;
         if (downloadsMap.has(key)) return;
 
-        const isImage = getIsImageFromUrlOrText(href, (titleAttr || "") + " " + (textContent || ""));
+        const isImage = getIsImageFromUrlOrText(
+          href,
+          (titleAttr || "") + " " + (textContent || ""),
+        );
 
         let itemThumb = thumb;
         if (!itemThumb && href.includes("rapidcdn.app")) {
-          itemThumb = href.replace("/v2?", "/thumb?").replace("/download?", "/thumb?");
+          itemThumb = href
+            .replace("/v2?", "/thumb?")
+            .replace("/download?", "/thumb?");
         }
 
         downloadsMap.set(key, {
@@ -245,7 +261,9 @@ async function scrapeSnapSave(cleanUrl) {
         });
       };
 
-      const items = doc.querySelectorAll(".download-box > li, .download-items, li");
+      const items = doc.querySelectorAll(
+        ".download-box > li, .download-items, li",
+      );
       const targets = items.length > 0 ? items : [doc];
 
       targets.forEach((item) => {
@@ -266,7 +284,8 @@ async function scrapeSnapSave(cleanUrl) {
         const options = item.querySelectorAll("select option");
         options.forEach((opt) => {
           const val = opt.getAttribute("value");
-          if (!val || !val.startsWith("http") || val.includes("snapsave.app")) return;
+          if (!val || !val.startsWith("http") || val.includes("snapsave.app"))
+            return;
           const key = val;
           if (downloadsMap.has(key)) return;
 
@@ -282,7 +301,9 @@ async function scrapeSnapSave(cleanUrl) {
       });
 
       if (downloadsMap.size === 0) {
-        const rawMatches = [...htmlContent.matchAll(/href=\\?["'](http[^"'\\]+)\\?["']/gi)].map((m) => m[1]);
+        const rawMatches = [
+          ...htmlContent.matchAll(/href=\\?["'](http[^"'\\]+)\\?["']/gi),
+        ].map((m) => m[1]);
         rawMatches.forEach((href) => {
           addLink(href, "Download", "Download", null);
         });
@@ -312,7 +333,11 @@ export async function scrapeInstagram(url) {
     const cleanUrl = getCleanUrl(url).split("?")[0];
     if (!_igSource) return { requireSource: true };
 
-    if (_igSource === "savevid" || _igSource === "downreels" || _igSource === "snapsave") {
+    if (
+      _igSource === "savevid" ||
+      _igSource === "downreels" ||
+      _igSource === "snapsave"
+    ) {
       const snapResult = await scrapeSnapSave(cleanUrl);
       if (snapResult) {
         _igSource = null;
@@ -324,66 +349,38 @@ export async function scrapeInstagram(url) {
     if (_igSource === "indown") {
       try {
         const desktopUA = CHROME_UA;
-        const acceptHeader =
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7";
+        const res = await scraperFetch(
+          {
+            url: "https://indown.net/api/ajaxSearch",
+            method: "POST",
+            data: serializeData({
+              q: cleanUrl,
+              vt: "reel",
+              t: "media",
+              lang: "en",
+              v: "v2",
+            }),
+            headers: {
+              "Content-Type":
+                "application/x-www-form-urlencoded; charset=UTF-8",
+              "User-Agent": desktopUA,
+              "X-Requested-With": "XMLHttpRequest",
+              Origin: "https://indown.net",
+              Referer: "https://indown.net/",
+            },
+            rawResponse: true,
+          },
+          "Indown Net",
+        );
 
-        const getTokenFromHtml = (htmlStr) => {
-          if (!htmlStr || typeof htmlStr !== "string") return null;
-          const match =
-            htmlStr.match(/name="_token"\s+value="([^"]+)"/i) ||
-            htmlStr.match(/value="([^"]+)"\s+name="_token"/i) ||
-            htmlStr.match(/_token\s*:\s*["']([^"']+)["']/i);
-          return match ? match[1] : null;
-        };
+        if (res && res.data) {
+          const rawData =
+            typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+          const htmlContent = rawData.data || "";
 
-        const doAttempt = async (initUrl) => {
-          try {
-            const r1 = await scraperFetch(
-              {
-                url: initUrl,
-                headers: {
-                  "User-Agent": desktopUA,
-                  Accept: acceptHeader,
-                },
-                rawResponse: true,
-              },
-              "Indown Init",
-            );
-
-            let token = getTokenFromHtml(r1 ? r1.data : "");
-            let parser = new DOMParser();
-            if (!token && r1 && r1.data) {
-              const doc1 = parser.parseFromString(r1.data, "text/html");
-              token = doc1.querySelector('input[name="_token"]')?.value;
-            }
-            if (!token) return null;
-
-            const cookies = getCookiesFromHeaders(r1.headers);
-            const r2 = await scraperFetch(
-              {
-                url: "https://indown.io/download",
-                method: "POST",
-                data: serializeData({
-                  link: cleanUrl,
-                  _token: token,
-                  referer: initUrl,
-                  locale: "en",
-                }),
-                headers: {
-                  Cookie: cookies,
-                  "Content-Type": "application/x-www-form-urlencoded",
-                  "User-Agent": desktopUA,
-                  Accept: acceptHeader,
-                  Referer: initUrl,
-                  Origin: "https://indown.io",
-                },
-                rawResponse: true,
-              },
-              "Indown Download",
-            );
-            currentStatus = r2.status;
-
-            const doc2 = parser.parseFromString(r2.data || "", "text/html");
+          if (htmlContent) {
+            const parser = new DOMParser();
+            const doc2 = parser.parseFromString(htmlContent, "text/html");
             const downloadsMap = new Map();
 
             const addLink = (a) => {
@@ -391,92 +388,109 @@ export async function scrapeInstagram(url) {
               if (!href || !href.startsWith("http")) return;
               href = href.replace(/&amp;/g, "&");
 
-              if (href.includes("indown.io/fetch") && href.includes("url=")) {
-                try {
-                  const targetUrl = decodeURIComponent(href.split("url=")[1].split("&")[0]);
-                  if (targetUrl.startsWith("http")) {
-                    href = targetUrl;
-                  }
-                } catch (_) {}
-              }
-
-              if (href.includes("indown.io")) return;
               if (
+                href.includes("indown.net") ||
                 href.includes("facebook.com") ||
-                href.includes("twitter.com") ||
-                href.includes("google.com") ||
-                href.includes("whatsapp.com") ||
-                href.includes("telegram") ||
                 href.includes("ads")
               )
                 return;
 
-              const key = href.split("?")[0];
-              if (downloadsMap.has(key)) return;
-
               const text = (a.textContent || "").toUpperCase();
               const title = (a.getAttribute("title") || "").toUpperCase();
-              const combined = href + " " + text + " " + title;
 
-              const isImage =
-                /\.(jpe?g|png|webp|gif)(\?|"|$)/i.test(href) ||
-                combined.includes("PHOTO") ||
-                combined.includes("IMAGE") ||
-                combined.includes("GAMBAR");
+              let isVideo = title.includes("VIDEO") || text.includes("VIDEO");
+              let isImage =
+                title.includes("IMAGE") ||
+                text.includes("IMAGE") ||
+                title.includes("PHOTO") ||
+                text.includes("PHOTO");
 
-              const type = isImage ? "IMAGE" : "VIDEO";
-              const quality = isImage ? "HD Photo" : "HD Video";
+              try {
+                const match = href.match(
+                  /token=([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/,
+                );
+                if (match) {
+                  const payloadB64 = match[1].split(".")[1];
+                  const base64 = payloadB64
+                    .replace(/-/g, "+")
+                    .replace(/_/g, "/");
+                  let decoded = "";
+                  if (typeof atob === "function") {
+                    decoded = atob(base64);
+                  } else if (typeof Buffer !== "undefined") {
+                    decoded = Buffer.from(base64, "base64").toString("utf-8");
+                  }
+                  if (
+                    decoded.includes(".mp4") ||
+                    decoded.includes(".mov") ||
+                    decoded.includes(".webm")
+                  ) {
+                    isVideo = true;
+                    isImage = false;
+                  } else if (
+                    decoded.includes(".jpg") ||
+                    decoded.includes(".jpeg") ||
+                    decoded.includes(".png") ||
+                    decoded.includes(".webp")
+                  ) {
+                    isImage = true;
+                    isVideo = false;
+                  }
+                }
+              } catch (_) {}
 
-              let itemThumb = isImage ? href : null;
+              const type = isVideo ? "VIDEO" : isImage ? "IMAGE" : "VIDEO";
+              const quality = type === "IMAGE" ? "HD Photo" : "HD Video";
+              const key = type + "_" + href.split("?")[0];
+              if (downloadsMap.has(key)) return;
+
+              let itemThumb = type === "IMAGE" ? href : null;
               if (typeof a.closest === "function") {
-                const parent = a.closest(".col-md-4, .col-sm-6, .row, div");
+                const parent = a.closest(
+                  ".download-items, .col-md-4, .col-sm-6, .row, div",
+                );
                 if (parent) {
                   const img = parent.querySelector("img");
                   if (img) {
-                    let imgSrc = img.getAttribute("src") || "";
-                    if (imgSrc.includes("indown.io/fetch") && imgSrc.includes("url=")) {
-                      try {
-                        const tUrl = decodeURIComponent(imgSrc.split("url=")[1].split("&")[0]);
-                        if (tUrl.startsWith("http")) imgSrc = tUrl;
-                      } catch (_) {}
-                    }
-                    if (!imgSrc.includes("indown.io")) itemThumb = imgSrc;
+                    const imgSrc = img.getAttribute("src") || "";
+                    if (imgSrc.startsWith("http")) itemThumb = imgSrc;
                   }
                 }
               }
 
-              downloadsMap.set(key, { type, quality, url: href, thumbnail: itemThumb || href });
+              downloadsMap.set(key, {
+                type,
+                quality,
+                url: href,
+                thumbnail: itemThumb || href,
+              });
             };
 
             const btnLinks = doc2.querySelectorAll(
-              ".btn-group-vertical a, a.btn-color, a.btn, a[href*='cdninstagram'], a[href*='fbcdn'], a[href*='indown.io/fetch']",
+              ".download-items a, a.abutton, a.btn, a[href*='snapcdn'], a[href*='cdninstagram'], a[href*='fbcdn']",
             );
             if (btnLinks.length > 0) {
               btnLinks.forEach(addLink);
             }
 
-            if (downloadsMap.size === 0 && r2 && r2.data) {
-              const matches = [...r2.data.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gis)];
-              matches.forEach((m) => {
-                const href = m[1];
-                const text = m[2].replace(/<[^>]+>/g, "");
-                const titleMatch = m[0].match(/title=["']([^"']+)["']/i);
-                const title = titleMatch ? titleMatch[1] : "";
-                const mockA = {
-                  getAttribute: (attr) => (attr === "href" ? href : attr === "title" ? title : null),
-                  textContent: text,
-                  closest: () => null,
-                };
-                addLink(mockA);
-              });
-            }
-
-            const downloads = [...downloadsMap.values()];
+            let downloads = [...downloadsMap.values()];
             if (downloads.length > 0) {
-              let thumbnail = downloads[0].thumbnail || downloads[0].url;
-              const video = doc2.querySelector("video.img-fluid");
-              if (video) thumbnail = video.getAttribute("poster") || thumbnail;
+              downloads.sort((a, b) => {
+                if (a.type === "VIDEO" && b.type !== "VIDEO") return -1;
+                if (a.type !== "VIDEO" && b.type === "VIDEO") return 1;
+                return 0;
+              });
 
+              const imgThumbObj =
+                downloads.find((d) => d.type === "IMAGE") || downloads[0];
+              const thumbnail = imgThumbObj.thumbnail || imgThumbObj.url;
+
+              const hasVideo = downloads.some((d) => d.type === "VIDEO");
+              if (hasVideo) {
+                downloads = downloads.filter((d) => d.type === "VIDEO");
+              }
+
+              _igSource = null;
               return createScraperResult(true, {
                 title: "Instagram Content",
                 thumbnail,
@@ -484,33 +498,10 @@ export async function scrapeInstagram(url) {
                 sourceUrl: cleanUrl,
               });
             }
-          } catch (e) {
-            console.warn("[Indown Attempt Exception]:", e);
           }
-          return null;
-        };
-
-        // Pass 1: /en2
-        let indownRes = await doAttempt("https://indown.io/en2");
-
-        // Pass 2: main page fallback if Pass 1 produced no media
-        if (!indownRes) {
-          await new Promise((r) => setTimeout(r, 250));
-          indownRes = await doAttempt("https://indown.io/");
-        }
-
-        if (indownRes) {
-          _igSource = null;
-          return indownRes;
         }
       } catch (err) {
-        console.warn("[Indown] Primary passes failed, trying Direct Embed fallback...", err);
-      }
-
-      const embedResult = await scrapeInstagramEmbedDirect(cleanUrl);
-      if (embedResult) {
-        _igSource = null;
-        return embedResult;
+        console.warn("[Indown.Net] Request failed:", err);
       }
 
       throw new Error(
