@@ -381,29 +381,22 @@ export async function scrapeInstagram(url) {
           if (htmlContent) {
             const parser = new DOMParser();
             const doc2 = parser.parseFromString(htmlContent, "text/html");
-            const downloadsMap = new Map();
+            const downloads = [];
+            const seenUrls = new Set();
 
-            const addLink = (a) => {
-              let href = a.getAttribute("href");
-              if (!href || !href.startsWith("http")) return;
-              href = href.replace(/&amp;/g, "&");
-
+            const checkIsVideo = (href, text, title) => {
+              const upper = (text + " " + title).toUpperCase();
+              if (upper.includes("VIDEO") || upper.includes("MP4") || upper.includes("REEL")) {
+                return true;
+              }
               if (
-                href.includes("indown.net") ||
-                href.includes("facebook.com") ||
-                href.includes("ads")
-              )
-                return;
-
-              const text = (a.textContent || "").toUpperCase();
-              const title = (a.getAttribute("title") || "").toUpperCase();
-
-              let isVideo = title.includes("VIDEO") || text.includes("VIDEO");
-              let isImage =
-                title.includes("IMAGE") ||
-                text.includes("IMAGE") ||
-                title.includes("PHOTO") ||
-                text.includes("PHOTO");
+                upper.includes("PHOTO") ||
+                upper.includes("IMAGE") ||
+                upper.includes("GAMBAR") ||
+                upper.includes("FOTO")
+              ) {
+                return false;
+              }
 
               try {
                 const match = href.match(
@@ -420,80 +413,141 @@ export async function scrapeInstagram(url) {
                   } else if (typeof Buffer !== "undefined") {
                     decoded = Buffer.from(base64, "base64").toString("utf-8");
                   }
-                  if (
-                    decoded.includes(".mp4") ||
-                    decoded.includes(".mov") ||
-                    decoded.includes(".webm")
-                  ) {
-                    isVideo = true;
-                    isImage = false;
-                  } else if (
-                    decoded.includes(".jpg") ||
-                    decoded.includes(".jpeg") ||
-                    decoded.includes(".png") ||
-                    decoded.includes(".webp")
-                  ) {
-                    isImage = true;
-                    isVideo = false;
-                  }
+                  if (/\.(mp4|mov|webm|mkv)(\?|"|$)/i.test(decoded)) return true;
+                  if (/\.(jpe?g|png|webp)(\?|"|$)/i.test(decoded)) return false;
                 }
               } catch (_) {}
 
-              const type = isVideo ? "VIDEO" : isImage ? "IMAGE" : "VIDEO";
-              const quality = type === "IMAGE" ? "HD Photo" : "HD Video";
-              const key = type + "_" + href.split("?")[0];
-              if (downloadsMap.has(key)) return;
+              if (/\.(mp4|mov|webm)(\?|$)/i.test(href)) return true;
+              if (/\.(jpe?g|png|webp)(\?|$)/i.test(href)) return false;
 
-              let itemThumb = type === "IMAGE" ? href : null;
-              if (typeof a.closest === "function") {
-                const parent = a.closest(
-                  ".download-items, .col-md-4, .col-sm-6, .row, div",
-                );
-                if (parent) {
-                  const img = parent.querySelector("img");
-                  if (img) {
-                    const imgSrc = img.getAttribute("src") || "";
-                    if (imgSrc.startsWith("http")) itemThumb = imgSrc;
-                  }
-                }
-              }
-
-              downloadsMap.set(key, {
-                type,
-                quality,
-                url: href,
-                thumbnail: itemThumb || href,
-              });
+              return false;
             };
 
-            const btnLinks = doc2.querySelectorAll(
-              ".download-items a, a.abutton, a.btn, a[href*='snapcdn'], a[href*='cdninstagram'], a[href*='fbcdn']",
+            let cards = Array.from(
+              doc2.querySelectorAll(
+                ".download-items, .col-md-4, .col-sm-6, .card, .thumbnail",
+              ),
             );
-            if (btnLinks.length > 0) {
-              btnLinks.forEach(addLink);
+
+            // Filter to leaf cards
+            cards = cards.filter(
+              (c) => !cards.some((other) => other !== c && other.contains(c)),
+            );
+
+            if (cards.length === 0) {
+              cards = [doc2];
             }
 
-            let downloads = [...downloadsMap.values()];
-            if (downloads.length > 0) {
-              downloads.sort((a, b) => {
-                if (a.type === "VIDEO" && b.type !== "VIDEO") return -1;
-                if (a.type !== "VIDEO" && b.type === "VIDEO") return 1;
-                return 0;
+            cards.forEach((card, idx) => {
+              const thumbImg = card.querySelector("img");
+              const thumbSrc = thumbImg?.getAttribute("src") || "";
+
+              const allA = Array.from(
+                card.querySelectorAll(
+                  "a[href*='download'], a.abutton, a.btn, a[href*='snapcdn'], a[href*='rapidcdn'], a[href*='cdninstagram'], a[href*='fbcdn'], a[href^='http']",
+                ),
+              ).filter((a) => {
+                let href = a.getAttribute("href") || "";
+                if (!href.startsWith("http")) return false;
+                if (
+                  href.includes("indown.net/api") ||
+                  href.includes("facebook.com") ||
+                  href.includes("ads") ||
+                  href === "https://indown.net/" ||
+                  href === "https://indown.net"
+                ) {
+                  return false;
+                }
+                return true;
               });
 
-              const imgThumbObj =
-                downloads.find((d) => d.type === "IMAGE") || downloads[0];
-              const thumbnail = imgThumbObj.thumbnail || imgThumbObj.url;
+              if (allA.length === 0) return;
 
-              const hasVideo = downloads.some((d) => d.type === "VIDEO");
-              if (hasVideo) {
-                downloads = downloads.filter((d) => d.type === "VIDEO");
-              }
+              // Prioritize video link if present in this card
+              const videoA = allA.find((a) => {
+                const href = a.getAttribute("href") || "";
+                const text = a.textContent || "";
+                const title = a.getAttribute("title") || "";
+                return checkIsVideo(href, text, title);
+              });
+
+              const chosenA = videoA || allA[0];
+              let href = chosenA.getAttribute("href").replace(/&amp;/g, "&");
+              if (seenUrls.has(href)) return;
+              seenUrls.add(href);
+
+              const text = chosenA.textContent || "";
+              const title = chosenA.getAttribute("title") || "";
+              const isVideo = checkIsVideo(href, text, title);
+              const type = isVideo ? "VIDEO" : "IMAGE";
+              const quality = isVideo
+                ? `HD Video ${idx + 1}`
+                : `HD Photo ${idx + 1}`;
+              const thumbnail =
+                thumbSrc && thumbSrc.startsWith("http")
+                  ? thumbSrc
+                  : type === "IMAGE"
+                    ? href
+                    : null;
+
+              downloads.push({
+                type,
+                quality:
+                  downloads.length > 0
+                    ? quality
+                    : isVideo
+                      ? "HD Video"
+                      : "HD Photo",
+                url: href,
+                thumbnail: thumbnail || href,
+              });
+            });
+
+            if (downloads.length === 0) {
+              const allLinks = Array.from(
+                doc2.querySelectorAll(
+                  "a.abutton, a.btn, a[href*='snapcdn'], a[href*='rapidcdn'], a[href*='cdninstagram'], a[href*='fbcdn'], a[href*='download']",
+                ),
+              );
+
+              allLinks.forEach((a, idx) => {
+                let href = a.getAttribute("href");
+                if (!href || !href.startsWith("http")) return;
+                href = href.replace(/&amp;/g, "&");
+                if (
+                  href.includes("indown.net/api") ||
+                  href.includes("facebook.com") ||
+                  href.includes("ads") ||
+                  href === "https://indown.net/"
+                )
+                  return;
+                if (seenUrls.has(href)) return;
+                seenUrls.add(href);
+
+                const text = a.textContent || "";
+                const title = a.getAttribute("title") || "";
+                const isVideo = checkIsVideo(href, text, title);
+                const type = isVideo ? "VIDEO" : "IMAGE";
+                downloads.push({
+                  type,
+                  quality:
+                    type === "IMAGE"
+                      ? `HD Photo ${idx + 1}`
+                      : `HD Video ${idx + 1}`,
+                  url: href,
+                  thumbnail: href,
+                });
+              });
+            }
+
+            if (downloads.length > 0) {
+              const firstThumb = downloads[0].thumbnail || downloads[0].url;
 
               _igSource = null;
               return createScraperResult(true, {
                 title: "Instagram Content",
-                thumbnail,
+                thumbnail: firstThumb,
                 downloads,
                 sourceUrl: cleanUrl,
               });
