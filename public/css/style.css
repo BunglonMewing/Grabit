@@ -109,7 +109,7 @@ body {
   width: 100%;
   max-width: 500px;
   padding: calc(40px + env(safe-area-inset-top)) 20px
-    calc(110px + env(safe-area-inset-bottom)) 20px;
+    calc(130px + env(safe-area-inset-bottom)) 20px;
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
