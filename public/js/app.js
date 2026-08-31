@@ -60,6 +60,7 @@ import "./modules/download.js";
 import { initBgAnimation } from "./modules/bgAnimation.js";
 
 initBgAnimation();
+initGallery();
 
 // Batch Mode Toggle
 if (batchToggleBtn) {
@@ -173,7 +174,7 @@ window.addEventListener("mori_download_started", refreshHistoryIfVisible);
 window.addEventListener("mori_download_ended", refreshHistoryIfVisible);
 window.addEventListener("mori_download_cancelled", refreshHistoryIfVisible);
 
-const pages = ["home", "history", "settings"];
+const pages = ["home", "history", "gallery", "settings"];
 
 async function switchPage(pageId) {
   const isPrivacyOn = localStorage.getItem("mori_privacy_lock") === "true";
@@ -227,6 +228,11 @@ async function switchPage(pageId) {
   if (pageId === "settings") {
     settingsSubPages?.forEach((p) => p.classList.add("hidden"));
     if (settingsMainMenu) settingsMainMenu.classList.remove("hidden");
+  }
+
+  // Refresh gallery if entering gallery page
+  if (pageId === "gallery") {
+    refreshGallery();
   }
 
   // Refresh history if entering history page
@@ -364,4 +370,5 @@ if (
       showToast(lang["toast-press-back-exit"] || "Press back again to exit");
     }
   });
-}
+      }
+            
