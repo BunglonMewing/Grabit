@@ -171,6 +171,13 @@ function refreshHistoryIfVisible() {
   }
 }
 window.addEventListener("mori_download_started", refreshHistoryIfVisible);
+
+// Gallery item click handler
+window.addEventListener("mori_gallery_open_item", (e) => {
+  if (e.detail && typeof onHistoryItemClick === "function") {
+    onHistoryItemClick(e.detail);
+  }
+});
 window.addEventListener("mori_download_ended", refreshHistoryIfVisible);
 window.addEventListener("mori_download_cancelled", refreshHistoryIfVisible);
 
@@ -370,5 +377,5 @@ if (
       showToast(lang["toast-press-back-exit"] || "Press back again to exit");
     }
   });
-      }
-            
+                                        }
+          
