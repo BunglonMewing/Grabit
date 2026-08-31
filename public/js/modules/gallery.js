@@ -1,6 +1,4 @@
 // gallery.js — Gallery page: scan history for downloaded files
-import { showModal } from "../ui.js";
-import { onHistoryItemClick } from "./history.js";
 
 let currentFilter = "all";
 
@@ -35,25 +33,23 @@ function getGalleryItems() {
 
   for (const item of history) {
     const localFiles = item.localFiles || [];
-    if (localFiles.length === 0 && !item.localUri) continue;
 
-    for (const file of localFiles) {
-      if (!file || (!file.path && !file.uri)) continue;
-      items.push({
-        historyItem: item,
-        file,
-        type: (file.type || "").toUpperCase(),
-        thumbnail: file.thumbnail || item.localThumbnail || item.thumbnail || "",
-        title: file.title || item.title || "",
-        timestamp: item.timestamp || 0,
-      });
-    }
-
-    // Fallback: item punya localUri tapi tidak ada localFiles
-    if (localFiles.length === 0 && item.localUri) {
+    if (localFiles.length > 0) {
+      for (const file of localFiles) {
+        if (!file || (!file.path && !file.uri)) continue;
+        items.push({
+          historyItem: item,
+          file,
+          type: (file.type || "").toUpperCase(),
+          thumbnail: file.thumbnail || item.localThumbnail || item.thumbnail || "",
+          title: file.title || item.title || "",
+          timestamp: item.timestamp || 0,
+        });
+      }
+    } else if (item.localUri) {
       const path = item.localUri.toLowerCase();
       const type = path.endsWith(".mp4") ? "VIDEO"
-        : path.endsWith(".mp3") || path.endsWith(".m4a") ? "AUDIO"
+        : (path.endsWith(".mp3") || path.endsWith(".m4a")) ? "AUDIO"
         : "IMAGE";
       items.push({
         historyItem: item,
@@ -66,9 +62,13 @@ function getGalleryItems() {
     }
   }
 
-  // Sort terbaru dulu
   items.sort((a, b) => b.timestamp - a.timestamp);
   return items;
+}
+
+function openHistoryItem(item) {
+  // Dispatch event ke app.js/ui.js yang sudah handle modal
+  window.dispatchEvent(new CustomEvent("mori_gallery_open_item", { detail: item }));
 }
 
 function renderGallery() {
@@ -113,7 +113,7 @@ function renderGallery() {
       thumb.appendChild(img);
     }
 
-    // Type badge overlay
+    // Type badge
     if (isVideo) {
       const badge = document.createElement("div");
       badge.className = "gallery-type-badge";
@@ -128,17 +128,12 @@ function renderGallery() {
 
     card.appendChild(thumb);
 
-    // Title
     const title = document.createElement("p");
     title.className = "gallery-card-title";
     title.textContent = item.title || "Untitled";
     card.appendChild(title);
 
-    // Klik buka modal
-    card.addEventListener("click", () => {
-      onHistoryItemClick(item.historyItem);
-    });
-
+    card.addEventListener("click", () => openHistoryItem(item.historyItem));
     grid.appendChild(card);
   }
-}
+        }
