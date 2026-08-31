@@ -258,13 +258,32 @@ export async function showModal(item, onRedownload) {
       slides.forEach((s, i) => {
         const isActive = i === modalCurrentSlide;
         s.classList.toggle("active", isActive);
-        const media = s.querySelector("video, audio");
+
+        // Cari video/audio di dalam slide maupun di dalam mori-player-container
+        const media =
+          s.querySelector(".mori-player-container video") ||
+          s.querySelector(".mori-player-container audio") ||
+          s.querySelector("video") ||
+          s.querySelector("audio");
+
         if (media) {
           if (isActive) {
+            // Pastikan preload aktif sebelum play
+            if (media.preload === "none" || media.preload === "metadata") {
+              media.preload = "auto";
+            }
             media.currentTime = 0;
             media.loop = localStorage.getItem("mori_loop") !== "false";
             if (localStorage.getItem("mori_autoplay") !== "false") {
-              media.play().catch(() => {});
+              // Load dulu kalau belum siap, baru play
+              if (media.readyState === 0) {
+                media.load();
+                media.addEventListener("canplay", () => {
+                  media.play().catch(() => {});
+                }, { once: true });
+              } else {
+                media.play().catch(() => {});
+              }
             }
           } else {
             media.pause();
@@ -379,4 +398,5 @@ export async function showModal(item, onRedownload) {
       translations[currentLang]["label-modal-error"] + ": " + err.message,
     );
   }
-}
+        }
+                            
