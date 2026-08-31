@@ -40,3 +40,14 @@ jobs:
         run: |
           cd android
           ./gradlew assembleDebug
+
+      - name: Build with Gradle
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mori-Android-Debug
+          path: android/app/build/outputs/apk/debug/*.apk
