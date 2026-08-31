@@ -277,7 +277,15 @@ input[type="text"]:focus {
 .skeleton-info {
   padding: 20px;
 }
+.skip-back-btn,
+.skip-fwd-btn {
+  position: relative;
+}
 
+.skip-back-btn svg text,
+.skip-fwd-btn svg text {
+  dominant-baseline: central;
+}
 .skeleton-line {
   height: 12px;
   background: linear-gradient(
