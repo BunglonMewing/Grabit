@@ -1,0 +1,94 @@
+/* ============================================================
+   GALLERY PAGE — tambahkan ke bagian bawah style.css
+   ============================================================ */
+
+/* Filter bar */
+.gallery-filter-bar {
+  display: flex;
+  gap: 8px;
+  padding: 0 0 12px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.gallery-filter-bar::-webkit-scrollbar { display: none; }
+
+.gallery-filter-chip {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border-color, rgba(255,255,255,0.15));
+  background: transparent;
+  color: var(--text-secondary, #888);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.gallery-filter-chip.active {
+  background: var(--accent-color, #fff);
+  color: var(--bg-color, #000);
+  border-color: var(--accent-color, #fff);
+}
+
+/* Grid */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+/* Card */
+.gallery-card {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gallery-thumb {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: var(--card-bg, rgba(255,255,255,0.05));
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Play / audio badge di tengah thumbnail */
+.gallery-type-badge {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+}
+.gallery-type-audio {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* Title bawah card */
+.gallery-card-title {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 2px;
+  margin: 0;
+}
+
+/* Header actions */
+.gallery-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
