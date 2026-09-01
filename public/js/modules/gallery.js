@@ -31,30 +31,16 @@ export function initGallery() {
 
 export async function refreshGallery() {
   const grid = document.getElementById("galleryGrid");
+  const empty = document.getElementById("galleryEmpty");
   if (!grid) return;
 
-  grid.innerHTML = `<div style="grid-column:1/-1;padding:20px;font-size:12px">
-    Filesystem: ${!!Filesystem}<br>
-    mori_download_path: ${localStorage.getItem("mori_download_path") || "null"}<br>
-    Scanning...
-  </div>`;
+  grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;opacity:0.5;font-size:13px">Scanning...</div>`;
+  empty?.classList.add("hidden");
 
-  const baseName = localStorage.getItem("mori_download_path") || "Mori";
-  const folderPath = `Download/${baseName}/YouTube`;
-  
-  let debugText = `folder: ${folderPath}<br>`;
-  
-  for (const dir of ["EXTERNAL_STORAGE", "DOCUMENTS", "EXTERNAL"]) {
-    try {
-      const res = await Filesystem.readdir({ path: folderPath, directory: dir }).catch(e => ({ error: e.message }));
-      debugText += `${dir}: ${res?.error || JSON.stringify(res?.files?.slice(0,2))}<br>`;
-    } catch(e) {
-      debugText += `${dir}: CATCH ${e.message}<br>`;
-    }
-  }
-  
-  grid.innerHTML = `<div style="grid-column:1/-1;padding:20px;font-size:11px;word-break:break-all">${debugText}</div>`;
-  }
+  allItems = await scanMoriFolder();
+  renderGallery();
+}
+
 async function scanMoriFolder() {
   if (!Filesystem) return [];
 
@@ -89,10 +75,10 @@ async function scanMoriFolder() {
 
             if (!isVideo && !isAudio && !isImage) continue;
 
-            const filePath = `${folderPath}/${fileName}`;
-            const fileUri = `file:///storage/emulated/0/${filePath}`;
+            const fileUri = file.uri || `file:///storage/emulated/0/${folderPath}/${fileName}`;
+            const filePath = fileUri.replace('file://', '').replace('/storage/emulated/0/', '');
             const capUrl = window.Capacitor?.convertFileSrc
-              ? window.Capacitor.convertFileSrc(fileUri)
+              ? window.Capacitor.convertFileSrc(decodeURIComponent(fileUri))
               : fileUri;
 
             items.push({
@@ -173,23 +159,27 @@ function renderGallery() {
     card.appendChild(title);
 
     card.addEventListener("click", () => {
+      const rawUri = item.fileUri;
+      const capSrc = window.Capacitor?.convertFileSrc
+        ? window.Capacitor.convertFileSrc(decodeURIComponent(rawUri))
+        : rawUri;
       window.dispatchEvent(new CustomEvent("mori_gallery_open_item", {
         detail: {
           title: item.fileName.replace(/\.[^.]+$/, ""),
-          thumbnail: "",
-          url: item.fileUri,
+          thumbnail: item.type === "IMAGE" ? capSrc : "",
+          url: rawUri,
           localFiles: [{
-            path: item.filePath,
-            uri: item.fileUri,
+            path: decodeURIComponent(rawUri).replace("file://", ""),
+            uri: rawUri,
             type: item.type,
-            thumbnail: "",
+            thumbnail: item.type === "IMAGE" ? capSrc : "",
           }],
-          localUri: item.fileUri,
+          localUri: rawUri,
         }
       }));
     });
 
     grid.appendChild(card);
   }
-      }
-      
+              }
+          
