@@ -56,7 +56,7 @@ export function getCleanDirectoryPath(item, rawFile) {
       ));
 
   if (isPdf) {
-    return localStorage.getItem("mori_pdf_path") || "Download/Mori";
+    return localStorage.getItem("grabit_pdf_path") || "Download/Grabit";
   }
 
   const isAudio =
@@ -71,7 +71,7 @@ export function getCleanDirectoryPath(item, rawFile) {
         item.url.includes("music.apple")));
 
   if (isAudio) {
-    return localStorage.getItem("mori_music_path") || "Music/Mori";
+    return localStorage.getItem("grabit_music_path") || "Music/Grabit";
   }
 
   const isPhoto =
@@ -83,10 +83,10 @@ export function getCleanDirectoryPath(item, rawFile) {
     (item?.url && item.url.includes("pinterest"));
 
   if (isPhoto) {
-    return localStorage.getItem("mori_photo_path") || "Pictures/Mori";
+    return localStorage.getItem("grabit_photo_path") || "Pictures/Grabit";
   }
 
-  return localStorage.getItem("mori_video_path") || "Movies/Mori";
+  return localStorage.getItem("grabit_video_path") || "Movies/Grabit";
 }
 
 let modalCurrentSlide = 0;
@@ -259,10 +259,10 @@ export async function showModal(item, onRedownload) {
         const isActive = i === modalCurrentSlide;
         s.classList.toggle("active", isActive);
 
-        // Cari video/audio di dalam slide maupun di dalam mori-player-container
+        // Cari video/audio di dalam slide maupun di dalam grabit-player-container
         const media =
-          s.querySelector(".mori-player-container video") ||
-          s.querySelector(".mori-player-container audio") ||
+          s.querySelector(".grabit-player-container video") ||
+          s.querySelector(".grabit-player-container audio") ||
           s.querySelector("video") ||
           s.querySelector("audio");
 
@@ -273,8 +273,8 @@ export async function showModal(item, onRedownload) {
               media.preload = "auto";
             }
             media.currentTime = 0;
-            media.loop = localStorage.getItem("mori_loop") !== "false";
-            if (localStorage.getItem("mori_autoplay") !== "false") {
+            media.loop = localStorage.getItem("grabit_loop") !== "false";
+            if (localStorage.getItem("grabit_autoplay") !== "false") {
               // Load dulu kalau belum siap, baru play
               if (media.readyState === 0) {
                 media.load();
@@ -370,7 +370,7 @@ export async function showModal(item, onRedownload) {
 
         slidesWrapper.addEventListener("error", showMissingStatus, true);
         slidesWrapper.addEventListener(
-          "mori_media_load_error",
+          "grabit_media_load_error",
           showMissingStatus,
         );
 
@@ -399,4 +399,5 @@ export async function showModal(item, onRedownload) {
     );
   }
         }
-                            
+
+        
