@@ -1,12 +1,12 @@
 /* ============================================================
-   GALLERY PAGE — tambahkan ke bagian bawah style.css
+   GALLERY — Grabit by BunglonMewing
    ============================================================ */
 
-/* Filter bar */
+/* ── Filter bar ─────────────────────────────────────────── */
 .gallery-filter-bar {
   display: flex;
   gap: 8px;
-  padding: 0 0 12px 0;
+  padding: 0 0 14px 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -14,70 +14,227 @@
 
 .gallery-filter-chip {
   flex-shrink: 0;
-  padding: 6px 16px;
+  padding: 6px 18px;
   border-radius: 999px;
-  border: 1.5px solid var(--border-color, rgba(255,255,255,0.15));
+  border: 1.5px solid var(--border-color, rgba(255,255,255,0.12));
   background: transparent;
   color: var(--text-secondary, #888);
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.18s, color 0.18s, border-color 0.18s, transform 0.12s;
+  user-select: none;
+}
+.gallery-filter-chip:active {
+  transform: scale(0.93);
 }
 .gallery-filter-chip.active {
-  background: var(--accent-color, #fff);
-  color: var(--bg-color, #000);
-  border-color: var(--accent-color, #fff);
+  background: var(--primary, #f8f8fa);
+  color: var(--on-primary, #141416);
+  border-color: var(--primary, #f8f8fa);
 }
 
-/* Grid */
+/* ── Scanning state ─────────────────────────────────────── */
+.gallery-scanning {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: var(--text-secondary, #888);
+  font-size: 13px;
+  opacity: 0.7;
+}
+.gallery-scanning-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid var(--border-color, rgba(255,255,255,0.12));
+  border-top-color: var(--primary, #f8f8fa);
+  border-radius: 50%;
+  animation: gallery-spin 0.75s linear infinite;
+}
+@keyframes gallery-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Grid ───────────────────────────────────────────────── */
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
+  gap: 3px;
 }
 
-/* Card */
+/* ── Card ───────────────────────────────────────────────── */
 .gallery-card {
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
+  animation: gallery-card-in 0.28s ease both;
+}
+@keyframes gallery-card-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
+/* ── Thumbnail container ────────────────────────────────── */
 .gallery-thumb {
   position: relative;
   aspect-ratio: 1 / 1;
-  background: var(--card-bg, rgba(255,255,255,0.05));
-  border-radius: 6px;
+  background: var(--surface, rgba(255,255,255,0.05));
+  border-radius: 8px;
   overflow: hidden;
+  transition: transform 0.15s ease;
+}
+.gallery-card:active .gallery-thumb {
+  transform: scale(0.96);
 }
 
+/* Skeleton shimmer */
+.gallery-thumb::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.05) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: gallery-shimmer 1.4s ease infinite;
+  z-index: 0;
+}
+.gallery-thumb--video::before,
+.gallery-thumb--audio::before {
+  animation: none;
+  background: none;
+}
+@keyframes gallery-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* Image */
 .gallery-thumb img {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: opacity 0.2s ease, transform 0.25s ease;
+  opacity: 0;
+}
+.gallery-thumb img[src]:not([src=""]) {
+  opacity: 1;
+}
+.gallery-card:active .gallery-thumb img {
+  transform: scale(1.03);
 }
 
-/* Play / audio badge di tengah thumbnail */
+/* Broken image */
+.gallery-thumb--broken::after {
+  content: "?";
+  font-size: 22px;
+  opacity: 0.25;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+/* ── Video / Audio backgrounds ──────────────────────────── */
+.gallery-thumb--video {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+.gallery-thumb--audio {
+  background: linear-gradient(135deg, #0f1923 0%, #1a2a1a 100%);
+}
+
+/* ── Gradient overlay ───────────────────────────────────── */
+.gallery-thumb-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0,0,0,0.55) 0%,
+    rgba(0,0,0,0.08) 55%,
+    transparent 100%
+  );
+  z-index: 1;
+}
+
+/* ── Play / audio badge ─────────────────────────────────── */
 .gallery-type-badge {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.35);
-  color: #fff;
+  z-index: 2;
+  color: rgba(255,255,255,0.92);
+  transition: transform 0.15s ease;
 }
-.gallery-type-audio {
-  background: rgba(0, 0, 0, 0.5);
+.gallery-card:active .gallery-type-badge {
+  transform: scale(1.15);
+}
+.gallery-type-badge svg {
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6));
+  background: rgba(255,255,255,0.14);
+  border-radius: 50%;
+  padding: 6px;
+  width: 42px;
+  height: 42px;
 }
 
-/* Title bawah card */
+/* ── Platform chip ──────────────────────────────────────── */
+.gallery-platform-chip {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: rgba(255,255,255,0.85);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* ── Ripple effect ──────────────────────────────────────── */
+.gallery-ripple {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.14);
+  border-radius: inherit;
+  animation: gallery-ripple-anim 0.45s ease forwards;
+  z-index: 10;
+  pointer-events: none;
+}
+@keyframes gallery-ripple-anim {
+  from { opacity: 1; transform: scale(0.85); }
+  to   { opacity: 0; transform: scale(1.05); }
+}
+
+/* ── Card title ─────────────────────────────────────────── */
 .gallery-card-title {
   font-size: 11px;
+  line-height: 1.3;
   color: var(--text-secondary, #888);
   white-space: nowrap;
   overflow: hidden;
@@ -86,9 +243,48 @@
   margin: 0;
 }
 
-/* Header actions */
+/* ── Header actions ─────────────────────────────────────── */
 .gallery-header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* ── Preview slide transitions ──────────────────────────── */
+.preview-slide {
+  opacity: 0;
+  transform: scale(0.97);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  pointer-events: none;
+}
+.preview-slide.active {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+#modalSlidePrevBtn,
+#modalSlideNextBtn {
+  transition: background 0.15s, transform 0.12s;
+}
+#modalSlidePrevBtn:active,
+#modalSlideNextBtn:active {
+  transform: scale(0.9);
+}
+
+/* ── Light theme adjustments ────────────────────────────── */
+[data-theme="light"] .gallery-platform-chip {
+  background: rgba(0,0,0,0.45);
+}
+[data-theme="light"] .gallery-thumb--video {
+  background: linear-gradient(135deg, #d0d8e8 0%, #bbc6da 100%);
+}
+[data-theme="light"] .gallery-thumb--audio {
+  background: linear-gradient(135deg, #d8e8d0 0%, #c2d8ba 100%);
+}
+[data-theme="light"] .gallery-type-badge {
+  color: rgba(0,0,0,0.7);
+}
+[data-theme="light"] .gallery-type-badge svg {
+  background: rgba(0,0,0,0.08);
 }
