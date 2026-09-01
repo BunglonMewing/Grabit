@@ -1,4 +1,4 @@
-// gallery.js — Gallery page: scan Download/Mori dari storage
+// gallery.js — Gallery page: scan Download/Grabit dari storage
 import { Filesystem } from "../utils/index.js";
 
 const PLATFORM_FOLDERS = [
@@ -10,6 +10,7 @@ const DIRECTORIES = ["EXTERNAL_STORAGE", "DOCUMENTS", "EXTERNAL"];
 
 let currentFilter = "all";
 let allItems = [];
+let _intersectionObserver = null;
 
 export function initGallery() {
   const filterBtn = document.getElementById("galleryFilterBtn");
@@ -34,23 +35,26 @@ export async function refreshGallery() {
   const empty = document.getElementById("galleryEmpty");
   if (!grid) return;
 
-  grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;opacity:0.5;font-size:13px">Scanning...</div>`;
+  grid.innerHTML = `<div class="gallery-scanning">
+    <div class="gallery-scanning-spinner"></div>
+    <span>Scanning...</span>
+  </div>`;
   empty?.classList.add("hidden");
 
-  allItems = await scanMoriFolder();
+  allItems = await scanGrabitFolder();
   renderGallery();
 }
 
-async function scanMoriFolder() {
+async function scanGrabitFolder() {
   if (!Filesystem) return [];
 
-  const baseName = localStorage.getItem("mori_download_path") || "Mori";
-  const videBase = `Download/${baseName}`;
-  const musicBase = localStorage.getItem("mori_music_path") || `Music/${baseName}`;
+  const baseName = localStorage.getItem("grabit_download_path") || localStorage.getItem("mori_download_path") || "Grabit";
+  const videoBase = `Download/${baseName}`;
+  const musicBase = localStorage.getItem("grabit_music_path") || localStorage.getItem("mori_music_path") || `Music/${baseName}`;
 
   const items = [];
 
-  for (const base of [videBase, musicBase]) {
+  for (const base of [videoBase, musicBase]) {
     for (const sub of PLATFORM_FOLDERS) {
       const folderPath = `${base}${sub}`;
       const platform = sub ? sub.replace("/", "") : baseName;
@@ -92,7 +96,6 @@ async function scanMoriFolder() {
             });
           }
 
-          // Kalau berhasil, tidak perlu coba directory lain untuk folder ini
           break;
         } catch (e) {}
       }
@@ -106,6 +109,12 @@ function renderGallery() {
   const grid = document.getElementById("galleryGrid");
   const empty = document.getElementById("galleryEmpty");
   if (!grid) return;
+
+  // Disconnect observer lama
+  if (_intersectionObserver) {
+    _intersectionObserver.disconnect();
+    _intersectionObserver = null;
+  }
 
   const filtered = currentFilter === "all"
     ? allItems
@@ -124,31 +133,70 @@ function renderGallery() {
   }
   empty?.classList.add("hidden");
 
-  for (const item of filtered) {
+  // IntersectionObserver untuk lazy load gambar
+  _intersectionObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        const img = entry.target;
+        if (img.dataset.src) {
+          img.src = img.dataset.src;
+          img.removeAttribute("data-src");
+          _intersectionObserver.unobserve(img);
+        }
+      }
+    });
+  }, { rootMargin: "100px" });
+
+  filtered.forEach((item, index) => {
     const card = document.createElement("div");
     card.className = "gallery-card";
+    // Stagger animasi masuk
+    card.style.animationDelay = `${Math.min(index * 30, 300)}ms`;
 
     const thumb = document.createElement("div");
     thumb.className = "gallery-thumb";
 
     if (item.type === "IMAGE") {
       const img = document.createElement("img");
-      img.src = item.capUrl;
+      img.dataset.src = item.capUrl;
+      img.src = "";
       img.referrerPolicy = "no-referrer";
-      img.onerror = () => { img.style.display = "none"; };
+      img.alt = item.fileName;
+      img.onerror = () => {
+        img.style.display = "none";
+        thumb.classList.add("gallery-thumb--broken");
+      };
       thumb.appendChild(img);
+      _intersectionObserver.observe(img);
     }
 
     if (item.type === "VIDEO") {
+      // Gradient overlay + badge
+      const overlay = document.createElement("div");
+      overlay.className = "gallery-thumb-overlay";
       const badge = document.createElement("div");
       badge.className = "gallery-type-badge";
-      badge.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+      badge.innerHTML = `<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+      thumb.appendChild(overlay);
       thumb.appendChild(badge);
+      thumb.classList.add("gallery-thumb--video");
     } else if (item.type === "AUDIO") {
+      const overlay = document.createElement("div");
+      overlay.className = "gallery-thumb-overlay";
       const badge = document.createElement("div");
       badge.className = "gallery-type-badge gallery-type-audio";
-      badge.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h3V3h-6z"/></svg>`;
+      badge.innerHTML = `<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h3V3h-6z"/></svg>`;
+      thumb.appendChild(overlay);
       thumb.appendChild(badge);
+      thumb.classList.add("gallery-thumb--audio");
+    }
+
+    // Platform chip kecil di pojok kanan atas
+    if (item.platform && item.platform !== "Grabit") {
+      const platformChip = document.createElement("span");
+      platformChip.className = "gallery-platform-chip";
+      platformChip.textContent = item.platform;
+      thumb.appendChild(platformChip);
     }
 
     card.appendChild(thumb);
@@ -156,6 +204,7 @@ function renderGallery() {
     const title = document.createElement("p");
     title.className = "gallery-card-title";
     title.textContent = item.fileName.replace(/\.[^.]+$/, "");
+    title.title = item.fileName.replace(/\.[^.]+$/, "");
     card.appendChild(title);
 
     card.addEventListener("click", () => {
@@ -163,7 +212,14 @@ function renderGallery() {
       const capSrc = window.Capacitor?.convertFileSrc
         ? window.Capacitor.convertFileSrc(decodeURIComponent(rawUri))
         : rawUri;
-      window.dispatchEvent(new CustomEvent("mori_gallery_open_item", {
+
+      // Ripple effect saat diklik
+      const ripple = document.createElement("div");
+      ripple.className = "gallery-ripple";
+      thumb.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 500);
+
+      window.dispatchEvent(new CustomEvent("grabit_gallery_open_item", {
         detail: {
           title: item.fileName.replace(/\.[^.]+$/, ""),
           thumbnail: item.type === "IMAGE" ? capSrc : "",
@@ -180,6 +236,5 @@ function renderGallery() {
     });
 
     grid.appendChild(card);
-  }
+  });
               }
-          
