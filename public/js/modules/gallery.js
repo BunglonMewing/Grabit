@@ -31,16 +31,30 @@ export function initGallery() {
 
 export async function refreshGallery() {
   const grid = document.getElementById("galleryGrid");
-  const empty = document.getElementById("galleryEmpty");
   if (!grid) return;
 
-  grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;opacity:0.5;font-size:13px">Scanning...</div>`;
-  empty?.classList.add("hidden");
+  grid.innerHTML = `<div style="grid-column:1/-1;padding:20px;font-size:12px">
+    Filesystem: ${!!Filesystem}<br>
+    mori_download_path: ${localStorage.getItem("mori_download_path") || "null"}<br>
+    Scanning...
+  </div>`;
 
-  allItems = await scanMoriFolder();
-  renderGallery();
-}
-
+  const baseName = localStorage.getItem("mori_download_path") || "Mori";
+  const folderPath = `Download/${baseName}/YouTube`;
+  
+  let debugText = `folder: ${folderPath}<br>`;
+  
+  for (const dir of ["EXTERNAL_STORAGE", "DOCUMENTS", "EXTERNAL"]) {
+    try {
+      const res = await Filesystem.readdir({ path: folderPath, directory: dir }).catch(e => ({ error: e.message }));
+      debugText += `${dir}: ${res?.error || JSON.stringify(res?.files?.slice(0,2))}<br>`;
+    } catch(e) {
+      debugText += `${dir}: CATCH ${e.message}<br>`;
+    }
+  }
+  
+  grid.innerHTML = `<div style="grid-column:1/-1;padding:20px;font-size:11px;word-break:break-all">${debugText}</div>`;
+  }
 async function scanMoriFolder() {
   if (!Filesystem) return [];
 
