@@ -73,12 +73,12 @@ export async function handlePasteFromClipboard(isSilent = false) {
         }
 
         const autoAnalyze =
-          localStorage.getItem("mori_auto_analyze") === "true";
+          localStorage.getItem("grabit_auto_analyze") === "true";
         if (autoAnalyze) {
           setTimeout(() => downloadBtn?.click(), 300);
         } else if (isSilent) {
           const autoDownload =
-            localStorage.getItem("mori_auto_download") === "true";
+            localStorage.getItem("grabit_auto_download") === "true";
           if (autoDownload) {
             // Wi-Fi check for auto-download
             const canAuto = await checkWifiOnlyGuard();
@@ -168,7 +168,7 @@ function processSharedText(text) {
 }
 
 // Handle Shared Intent from Native Android
-window.addEventListener("moriShareIntent", (e) => {
+window.addEventListener("grabitShareIntent", (e) => {
   try {
     let data = e.detail;
     if (typeof data === "string") {
@@ -187,9 +187,9 @@ window.addEventListener("moriShareIntent", (e) => {
 
 // Startup check for shared text (fallback for cold starts)
 setTimeout(() => {
-  if (window.moriShareText) {
-    processSharedText(window.moriShareText);
-    window.moriShareText = null; // Clear it
+  if (window.grabitShareText) {
+    processSharedText(window.grabitShareText);
+    window.grabitShareText = null; // Clear it
   }
 }, 1500);
 
@@ -222,8 +222,8 @@ if (App && typeof App.addListener === "function") {
         updateGreeting();
       } catch (_) {}
 
-      const loopSetting = localStorage.getItem("mori_loop") !== "false";
-      const autoPaste = localStorage.getItem("mori_auto_paste") !== "false";
+      const loopSetting = localStorage.getItem("grabit_loop") !== "false";
+      const autoPaste = localStorage.getItem("grabit_auto_paste") !== "false";
       if (autoPaste) {
         setIntentPending(true); // Assume a share might be coming
 
@@ -249,10 +249,10 @@ if (App && typeof App.addListener === "function") {
 export function mergePendingHistorySync() {
   try {
     let raw = null;
-    if (window.MoriMainBridge?.getPendingHistoryList) {
-      raw = window.MoriMainBridge.getPendingHistoryList();
-    } else if (window.MoriShareBridge?.getPendingHistoryList) {
-      raw = window.MoriShareBridge.getPendingHistoryList();
+    if (window.GrabitMainBridge?.getPendingHistoryList) {
+      raw = window.GrabitMainBridge.getPendingHistoryList();
+    } else if (window.GrabitShareBridge?.getPendingHistoryList) {
+      raw = window.GrabitShareBridge.getPendingHistoryList();
     }
 
     if (!raw || raw === "[]") return false;
@@ -263,7 +263,7 @@ export function mergePendingHistorySync() {
     const items = itemsRaw.map((x) =>
       typeof x === "string" ? JSON.parse(x) : x,
     );
-    let history = JSON.parse(localStorage.getItem("mori_history") || "[]");
+    let history = JSON.parse(localStorage.getItem("grabit_history") || "[]");
 
     items.forEach((newItem) => {
       if (!newItem || !newItem.title) return;
@@ -287,12 +287,12 @@ export function mergePendingHistorySync() {
       history.unshift(newItem);
     });
 
-    localStorage.setItem("mori_history", JSON.stringify(history.slice(0, 100)));
+    localStorage.setItem("grabit_history", JSON.stringify(history.slice(0, 100)));
 
-    if (window.MoriMainBridge?.clearPendingHistoryList) {
-      window.MoriMainBridge.clearPendingHistoryList();
-    } else if (window.MoriShareBridge?.clearPendingHistoryList) {
-      window.MoriShareBridge.clearPendingHistoryList();
+    if (window.GrabitMainBridge?.clearPendingHistoryList) {
+      window.GrabitMainBridge.clearPendingHistoryList();
+    } else if (window.GrabitShareBridge?.clearPendingHistoryList) {
+      window.GrabitShareBridge.clearPendingHistoryList();
     }
     return true;
   } catch (e) {
@@ -310,9 +310,9 @@ export function checkAndMergePendingHistory() {
 
 window.checkAndMergePendingHistorySync = mergePendingHistorySync;
 window.checkAndMergePendingHistory = checkAndMergePendingHistory;
-window.moriMergeShareHistoryList = checkAndMergePendingHistory;
+window.grabitMergeShareHistoryList = checkAndMergePendingHistory;
 
-window.moriRefreshHistory = function () {
+window.grabitRefreshHistory = function () {
   checkAndMergePendingHistory();
 };
 

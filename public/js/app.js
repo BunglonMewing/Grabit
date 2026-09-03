@@ -101,7 +101,7 @@ if (appVersionVal) appVersionVal.textContent = " " + APP_VERSION;
 
 // Run guide check on startup
 function initUserGuide() {
-  const isHidden = localStorage.getItem("mori_hide_guide") === "true";
+  const isHidden = localStorage.getItem("grabit_hide_guide") === "true";
   if (!isHidden) {
     guideOverlay?.classList.remove("hidden");
   }
@@ -109,14 +109,14 @@ function initUserGuide() {
 
 closeGuideBtn?.addEventListener("click", () => {
   if (hideGuideCheckbox?.checked) {
-    localStorage.setItem("mori_hide_guide", "true");
+    localStorage.setItem("grabit_hide_guide", "true");
   }
   guideOverlay?.classList.add("hidden");
 });
 
 guideToSettingsBtn?.addEventListener("click", () => {
   if (hideGuideCheckbox?.checked) {
-    localStorage.setItem("mori_hide_guide", "true");
+    localStorage.setItem("grabit_hide_guide", "true");
   }
   guideOverlay?.classList.add("hidden");
   switchPage("settings");
@@ -171,22 +171,22 @@ function refreshHistoryIfVisible() {
     renderHistory(onHistoryItemClick, onHistoryDeleteClick);
   }
 }
-window.addEventListener("mori_download_started", refreshHistoryIfVisible);
+window.addEventListener("grabit_download_started", refreshHistoryIfVisible);
 
 // Gallery item click handler
-window.addEventListener("mori_gallery_open_item", (e) => {
+window.addEventListener("grabit_gallery_open_item", (e) => {
   if (e.detail && typeof onHistoryItemClick === "function") {
     onHistoryItemClick(e.detail);
   }
 });
-window.addEventListener("mori_download_ended", refreshHistoryIfVisible);
-window.addEventListener("mori_download_cancelled", refreshHistoryIfVisible);
+window.addEventListener("grabit_download_ended", refreshHistoryIfVisible);
+window.addEventListener("grabit_download_cancelled", refreshHistoryIfVisible);
 
 const pages = ["home", "history", "gallery", "settings"];
 
 async function switchPage(pageId) {
-  const isPrivacyOn = localStorage.getItem("mori_privacy_lock") === "true";
-  const lockType = localStorage.getItem("mori_lock_type") || "none";
+  const isPrivacyOn = localStorage.getItem("grabit_privacy_lock") === "true";
+  const lockType = localStorage.getItem("grabit_lock_type") || "none";
 
   if (pageId === "history" && !isHistoryUnlocked) {
     if (isPrivacyOn && lockType !== "none") {
@@ -322,7 +322,7 @@ document.addEventListener(
 
 // Initial Auto-Download Check
 setTimeout(() => {
-  const autoDownload = localStorage.getItem("mori_auto_download") === "true";
+  const autoDownload = localStorage.getItem("grabit_auto_download") === "true";
   if (autoDownload) {
     if (typeof handlePasteFromClipboard === "function") {
       handlePasteFromClipboard(true);

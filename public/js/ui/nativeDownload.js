@@ -21,13 +21,13 @@ import { currentLang } from "../modules/core.js";
 import { scraperFetch } from "../scrapers/httpHelper.js";
 
 export function cancelCurrentDownload() {
-  window._moriDownloadCancelled = true;
+  window._grabitDownloadCancelled = true;
   // Dispatch event so history spinner can be cleared
-  window.dispatchEvent(new CustomEvent("mori_download_cancelled"));
+  window.dispatchEvent(new CustomEvent("grabit_download_cancelled"));
 }
 
 // Expose globally so the progress toast cancel button can call it
-window._moriCancelDownload = cancelCurrentDownload;
+window._grabitCancelDownload = cancelCurrentDownload;
 
 export async function startNativeDownload(
   url,
@@ -74,14 +74,14 @@ export async function startNativeDownload(
   }
 
   if (resetCancelFlag) {
-    window._moriDownloadCancelled = false;
+    window._grabitDownloadCancelled = false;
   }
   // If batch already cancelled, bail immediately
-  if (window._moriDownloadCancelled) return;
+  if (window._grabitDownloadCancelled) return;
 
-  window._moriActiveDownloadUrl = sourceUrl || url;
+  window._grabitActiveDownloadUrl = sourceUrl || url;
   window.dispatchEvent(
-    new CustomEvent("mori_download_started", {
+    new CustomEvent("grabit_download_started", {
       detail: { url: sourceUrl || url },
     }),
   );
@@ -121,12 +121,12 @@ export async function startNativeDownload(
     if (src.includes("snapchat")) return "Snapchat";
     return "Media";
   })();
-  if (window._moriActiveSimInterval) {
-    clearInterval(window._moriActiveSimInterval);
-    window._moriActiveSimInterval = null;
+  if (window._grabitActiveSimInterval) {
+    clearInterval(window._grabitActiveSimInterval);
+    window._grabitActiveSimInterval = null;
   }
 
-  const hideProgress = localStorage.getItem("mori_hide_progress") === "true";
+  const hideProgress = localStorage.getItem("grabit_hide_progress") === "true";
   if (!hideProgress) {
     showDownloadProgressToast(platformLabel, type);
   }
@@ -152,9 +152,9 @@ export async function startNativeDownload(
 
     // Acquire Wake Lock & Start Native Foreground Service
     requestWakeLock();
-    if (window.MoriMainBridge?.startDownloadService) {
+    if (window.GrabitMainBridge?.startDownloadService) {
       try {
-        window.MoriMainBridge.startDownloadService(
+        window.GrabitMainBridge.startDownloadService(
           `Downloading ${platformLabel} ${type || ""}`,
         );
       } catch (e) {
@@ -175,7 +175,7 @@ export async function startNativeDownload(
 
     let simProgress = 0;
     let realProgressReceived = false;
-    window._moriActiveSimInterval = setInterval(() => {
+    window._grabitActiveSimInterval = setInterval(() => {
       if (realProgressReceived) return;
       if (simProgress < 50) {
         simProgress += 6 + Math.random() * 4;
@@ -189,17 +189,17 @@ export async function startNativeDownload(
     }, 160);
 
     // Remove any existing listeners first to avoid double-firing
-    if (window._moriProgressListener) {
+    if (window._grabitProgressListener) {
       try {
-        await window._moriProgressListener.remove();
+        await window._grabitProgressListener.remove();
       } catch (_) {}
-      window._moriProgressListener = null;
+      window._grabitProgressListener = null;
     }
 
     // Listen for real progress if Filesystem exists
     if (Filesystem?.addListener) {
       try {
-        window._moriProgressListener = await Filesystem.addListener(
+        window._grabitProgressListener = await Filesystem.addListener(
           "downloadProgress",
           (progress) => {
             realProgressReceived = true;
@@ -241,7 +241,7 @@ export async function startNativeDownload(
       .trim();
     const isTrackType = /^\d+\.\s+/.test(cleanTypeLabel);
 
-    let effectiveTitle = title || "Mori Media";
+    let effectiveTitle = title || "Grabit Media";
     if (isTrackType) {
       effectiveTitle =
         cleanTypeLabel.replace(/^\d+\.\s+/, "").trim() || cleanTypeLabel;
@@ -254,9 +254,9 @@ export async function startNativeDownload(
       .replace(/\s+/g, " ")
       .substring(0, 60);
 
-    if (!sanitizedTitle) sanitizedTitle = "Mori_Media";
+    if (!sanitizedTitle) sanitizedTitle = "Grabit_Media";
 
-    const template = localStorage.getItem("mori_filename") || "title";
+    const template = localStorage.getItem("grabit_filename") || "title";
     let fileName = `${sanitizedTitle}.${ext}`;
 
     if (template === "title-platform") {
@@ -285,16 +285,16 @@ export async function startNativeDownload(
       fileName = `${sanitizedTitle}_${Date.now()}.${ext}`;
     }
 
-    const videoSubfolder = localStorage.getItem("mori_download_path") || "Mori";
+    const videoSubfolder = localStorage.getItem("grabit_download_path") || "Mori";
     const musicSubfolder =
-      localStorage.getItem("mori_music_path") || "Mori/Music";
+      localStorage.getItem("grabit_music_path") || "Mori/Music";
     const targetFolder = isAudio ? musicSubfolder : videoSubfolder;
     let fullPath = isAudio
       ? `Download/${musicSubfolder}`
       : `Download/${videoSubfolder}`;
 
     // Auto-Categorize Subfolder per Platform
-    if (localStorage.getItem("mori_auto_folder") !== "false") {
+    if (localStorage.getItem("grabit_auto_folder") !== "false") {
       const src = (sourceUrl || url || "").toLowerCase();
       let platformFolder = "Other";
       if (
@@ -366,7 +366,7 @@ export async function startNativeDownload(
       }
 
       // Handle duplicate files based on mori_overwrite setting
-      const overwriteMode = localStorage.getItem("mori_overwrite") || "rename";
+      const overwriteMode = localStorage.getItem("grabit_overwrite") || "rename";
       try {
         let checkExist = null;
         for (const dir of directoriesToTry) {
@@ -416,7 +416,7 @@ export async function startNativeDownload(
     }
 
     // Check cancel BEFORE starting resolve phase
-    if (window._moriDownloadCancelled) {
+    if (window._grabitDownloadCancelled) {
       cancelDownloadProgressToast();
       if (btn) {
         btn.disabled = false;
@@ -559,593 +559,4 @@ export async function startNativeDownload(
           } else {
             throw new Error("Could not resolve Soundloaders download link");
           }
-        } else if (url.startsWith("ytmp3gg_resolve:")) {
-          const parts = url.replace("ytmp3gg_resolve:", "").split("|||");
-          const ytId = parts[0];
-          const format = parts[1]; // mp3 or mp4
-          const quality = parts[2]; // 128 or 720
-
-          if (btn)
-            btn.innerHTML = `<div>${translations[currentLang]["btn-processing"] || "Processing..."} (Init)</div>`;
-          updateProgress(5, "Initializing Conversion...");
-
-          const headers = {
-            Origin: "https://media.ytmp3.gg",
-            Referer: "https://media.ytmp3.gg/",
-            "User-Agent": getUserAgent(),
-            Accept: "application/json, text/plain, */*",
-            "Content-Type": "application/json",
-          };
-
-          const convRes = await scraperFetch({
-            url: "https://hub.convert1s.com/api/download",
-            method: "POST",
-            headers,
-            data: JSON.stringify({
-              url: `https://www.youtube.com/watch?v=${ytId}`,
-              os: "macos",
-              output: {
-                type: format === "mp4" ? "video" : "audio",
-                format,
-                quality,
-              },
-              audio: { bitrate: "128k" },
-            }),
-          });
-
-          let conv = convRes;
-          if (typeof conv === "string") conv = JSON.parse(conv);
-
-          if (!conv || conv.error || !conv.statusUrl) {
-            throw new Error(
-              conv?.error ||
-                conv?.message ||
-                "Failed to initialize ytmp3.gg conversion",
-            );
-          }
-
-          let downloadUrl = null;
-          let pollCount = 0;
-          const maxPolls = 30;
-
-          while (!downloadUrl && pollCount < maxPolls) {
-            // Check cancel between polls
-            if (window._moriDownloadCancelled) {
-              cancelDownloadProgressToast();
-              if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = originalContent;
-              }
-              if (progressContainer) progressContainer.classList.add("hidden");
-              return;
-            }
-            if (btn)
-              btn.innerHTML = `<div>${translations[currentLang]["btn-processing"] || "Processing..."} (${pollCount + 1}/${maxPolls})</div>`;
-            updateProgress(
-              Math.min(90, 10 + pollCount * 3),
-              `Converting... (${pollCount + 1}/${maxPolls})`,
-            );
-
-            await new Promise((r) => setTimeout(r, 1500));
-            const pollData = await scraperFetch({
-              url: conv.statusUrl,
-              headers: {
-                Origin: "https://media.ytmp3.gg",
-                Referer: "https://media.ytmp3.gg/",
-                "User-Agent": getUserAgent(),
-                Accept: "application/json, text/plain, */*",
-              },
-            });
-            pollCount++;
-
-            let poll =
-              typeof pollData === "string" ? JSON.parse(pollData) : pollData;
-            if (poll && poll.status === "completed" && poll.downloadUrl) {
-              downloadUrl = poll.downloadUrl;
-              break;
-            }
-            if (poll && (poll.status === "error" || poll.status === "failed")) {
-              throw new Error("Conversion failed on ytmp3.gg server");
-            }
-          }
-          if (downloadUrl) {
-            actualDownloadUrl = downloadUrl;
-          } else {
-            throw new Error(
-              "Conversion timed out after " + maxPolls + " attempts.",
-            );
-          }
-        } else {
-          // Handle SnapSave tokens or general worker resolves
-          let resolved = false;
-          let pollCount = 0;
-          const maxPolls = 15;
-
-          while (!resolved && pollCount < maxPolls) {
-            // Check cancel between polls
-            if (window._moriDownloadCancelled) {
-              cancelDownloadProgressToast();
-              if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = originalContent;
-              }
-              if (progressContainer) progressContainer.classList.add("hidden");
-              return;
-            }
-            if (btn) {
-              btn.innerHTML = `<div>${translations[currentLang]["btn-processing"] || "Processing..."} ${pollCount > 0 ? `(${pollCount})` : ""}</div>`;
-            }
-            updateProgress(
-              Math.min(90, 10 + pollCount * 5),
-              `Resolving URL... (${pollCount + 1}/${maxPolls})`,
-            );
-
-            try {
-              const statusRes = await CapacitorHttp.get({
-                url: actualDownloadUrl,
-              });
-
-              if (statusRes && statusRes.data) {
-                let data = statusRes.data;
-                if (typeof data === "string") {
-                  try {
-                    data = JSON.parse(data);
-                  } catch (e) {}
-                }
-
-                if (data.fileUrl || data.url || data.download_url) {
-                  actualDownloadUrl =
-                    data.fileUrl || data.url || data.download_url;
-                  resolved = true;
-                } else if (data.status === "success" && data.download_url) {
-                  actualDownloadUrl = data.download_url;
-                  resolved = true;
-                } else if (
-                  typeof data === "string" &&
-                  data.includes('"fileUrl":')
-                ) {
-                  const match = data.match(/"fileUrl"\s*:\s*"([^"]+)"/);
-                  if (match) {
-                    actualDownloadUrl = match[1];
-                    resolved = true;
-                  }
-                }
-              }
-            } catch (err) {
-              console.warn("Poll attempt failed", err);
-            }
-
-            if (!resolved) {
-              pollCount++;
-              await new Promise((r) => setTimeout(r, 1500)); // Faster polling
-            }
-          }
-          if (!resolved) {
-            throw new Error("Unable to resolve download URL");
-          }
-        }
-      } catch (e) {
-        console.error("Worker resolve fatal failure", e);
-        throw e;
-      }
-    }
-
-    const isYtmp3GG =
-      (url && url.startsWith("ytmp3gg_resolve:")) ||
-      actualDownloadUrl.includes("ytmp3.gg") ||
-      actualDownloadUrl.includes("convert1s.com") ||
-      actualDownloadUrl.includes("lilillliiillliillii.shop");
-
-    const isYoutube =
-      isYtmp3GG ||
-      actualDownloadUrl.includes("ytmp3.mobi") ||
-      actualDownloadUrl.includes("ytdown") ||
-      actualDownloadUrl.includes("ymcdn.org") ||
-      (url && (url.includes("youtube.com") || url.includes("youtu.be"))) ||
-      (sourceUrl &&
-        (sourceUrl.includes("youtube.com") || sourceUrl.includes("youtu.be")));
-    const isTwitter =
-      actualDownloadUrl.includes("tweeload") ||
-      actualDownloadUrl.includes("twimg.com") ||
-      actualDownloadUrl.includes("acxcdn.com") ||
-      (url && (url.includes("twitter") || url.includes("x.com")));
-
-    const downloadHeaders = {
-      "User-Agent": getUserAgent(),
-    };
-
-    const isPixivDirect =
-      actualDownloadUrl.includes("pixiv.net") ||
-      actualDownloadUrl.includes("pximg.net") ||
-      actualDownloadUrl.includes("pixiv.re");
-    const isUgoiraCom = actualDownloadUrl.includes("ugoira");
-    const isBilibili =
-      actualDownloadUrl.includes("bilibili") ||
-      actualDownloadUrl.includes("bilivideo") ||
-      actualDownloadUrl.includes("bstarstatic") ||
-      actualDownloadUrl.includes("akamaized.net") ||
-      (url &&
-        (url.includes("bilibili") ||
-          url.includes("b23.tv") ||
-          url.includes("bili.im")));
-
-    if (
-      actualDownloadUrl.includes("pindown.io") &&
-      actualDownloadUrl.includes("file=")
-    ) {
-      try {
-        const match = actualDownloadUrl.match(
-          /file=(https?%3A%2F%2F[^&]+|https?:\/\/[^&]+)/i,
-        );
-        if (match && match[1]) {
-          actualDownloadUrl = decodeURIComponent(match[1]);
-        }
-      } catch (e) {}
-    }
-
-    const isPinterest =
-      actualDownloadUrl.includes("pindown.io") ||
-      actualDownloadUrl.includes("pinimg.com") ||
-      (url && (url.includes("pinterest.com") || url.includes("pin.it"))) ||
-      (sourceUrl &&
-        (sourceUrl.includes("pinterest.com") || sourceUrl.includes("pin.it")));
-
-    if (isYtmp3GG) {
-      downloadHeaders["Referer"] = "https://media.ytmp3.gg/";
-      downloadHeaders["Origin"] = "https://media.ytmp3.gg";
-    } else if (isYoutube) {
-      downloadHeaders["Referer"] = "https://ytmp3.mobi/";
-    }
-    if (isPixivDirect) downloadHeaders["Referer"] = "https://www.pixiv.net/";
-    if (isUgoiraCom) downloadHeaders["Referer"] = "https://ugoira.com/";
-    if (isBilibili) downloadHeaders["Referer"] = "https://www.bilibili.tv/";
-    if (isPinterest) {
-      if (actualDownloadUrl.includes("pindown.io")) {
-        downloadHeaders["Referer"] = "https://pindown.io/";
-      } else {
-        downloadHeaders["Referer"] = "https://www.pinterest.com/";
-      }
-    }
-    if (isTwitter) {
-      if (actualDownloadUrl.includes("twimg.com")) {
-        downloadHeaders["Referer"] = "https://twitter.com/";
-      } else {
-        downloadHeaders["Referer"] = "https://tweeload.com/";
-      }
-    }
-    if (
-      actualDownloadUrl.includes("spotidown") ||
-      (url && url.includes("spotify"))
-    ) {
-      downloadHeaders["Referer"] = "https://spotidown.app/";
-    }
-    if (actualDownloadUrl.includes("soundloaders")) {
-      downloadHeaders["Referer"] = "https://soundloaders.app/";
-    }
-    if (actualDownloadUrl.includes("aplmate")) {
-      downloadHeaders["Referer"] = "https://aplmate.com/";
-    }
-
-    let savedFile;
-    let attempts = 0;
-    const isAutoRetry = localStorage.getItem("mori_auto_retry") !== "false";
-    const customMaxRetry = parseInt(
-      localStorage.getItem("mori_max_retry") || "3",
-      10,
-    );
-    const maxAttempts = isAutoRetry ? customMaxRetry : 1;
-
-    if (tauriInvoke) {
-      try {
-        const desktopRes = await tauriInvoke("tauri_download_file", {
-          url: actualDownloadUrl,
-          filename: fileName,
-          folder: targetFolder || "",
-          headers: downloadHeaders || {},
-        });
-        if (desktopRes && desktopRes.status) {
-          savedFile = { path: desktopRes.path, uri: desktopRes.uri };
-        }
-      } catch (tErr) {
-        console.warn("Tauri native download failed:", tErr);
-        throw new Error(
-          typeof tErr === "string"
-            ? tErr
-            : tErr?.message || JSON.stringify(tErr),
-        );
-      }
-    }
-
-    if (!savedFile && Filesystem) {
-      for (const dir of directoriesToTry) {
-        if (savedFile) break;
-        attempts = 0;
-        while (attempts < maxAttempts && !savedFile) {
-          // Check cancel before each attempt
-          if (window._moriDownloadCancelled) break;
-          attempts++;
-          try {
-            if (attempts > 1) {
-              await new Promise((r) => setTimeout(r, 1000));
-            }
-            const isBypassSsl =
-              localStorage.getItem("mori_bypass_ssl") === "true";
-            const isForceIpv4 =
-              localStorage.getItem("mori_force_ipv4") === "true";
-
-            const tempFileName = `${fileName}.tmp`;
-            const dlOpts = {
-              url: actualDownloadUrl,
-              path: fullPath + "/" + tempFileName,
-              directory: dir,
-              progress: true,
-              headers: downloadHeaders,
-            };
-            if (isBypassSsl) dlOpts.disableSSLValidation = true;
-            if (isForceIpv4) dlOpts.ipv4Only = true;
-
-            const tempSaved = await Filesystem.downloadFile(dlOpts);
-            if (tempSaved) {
-              // Rename .tmp to actual file name atomically on completion
-              try {
-                await Filesystem.rename({
-                  from: fullPath + "/" + tempFileName,
-                  to: fullPath + "/" + fileName,
-                  directory: dir,
-                });
-                savedFile = { path: fullPath + "/" + fileName };
-              } catch (renameErr) {
-                // Fallback copy if rename unsupported
-                await Filesystem.copy({
-                  from: fullPath + "/" + tempFileName,
-                  to: fullPath + "/" + fileName,
-                  directory: dir,
-                });
-                await Filesystem.deleteFile({
-                  path: fullPath + "/" + tempFileName,
-                  directory: dir,
-                }).catch(() => {});
-                savedFile = { path: fullPath + "/" + fileName };
-              }
-              successfulDir = dir;
-            }
-          } catch (dlErr) {
-            console.warn(
-              `Download attempt ${attempts} on ${dir} failed:`,
-              dlErr,
-            );
-            // Clean up left over .tmp file on error
-            if (Filesystem) {
-              await Filesystem.deleteFile({
-                path: fullPath + "/" + `${fileName}.tmp`,
-                directory: dir,
-              }).catch(() => {});
-            }
-            if (attempts >= maxAttempts && CapacitorHttp) {
-              try {
-                const httpRes = await CapacitorHttp.get({
-                  url: actualDownloadUrl,
-                  responseType: "blob",
-                  headers: downloadHeaders,
-                  connectTimeout: 20000,
-                  readTimeout: 30000,
-                });
-                if (
-                  httpRes &&
-                  httpRes.status === 200 &&
-                  httpRes.data &&
-                  typeof httpRes.data === "string"
-                ) {
-                  await Filesystem.writeFile({
-                    path: fullPath + "/" + fileName,
-                    data: httpRes.data,
-                    directory: dir,
-                  });
-                  savedFile = { path: fullPath + "/" + fileName };
-                  successfulDir = dir;
-                }
-              } catch (fallbackErr) {
-                console.warn(
-                  `Http blob fallback on ${dir} failed:`,
-                  fallbackErr,
-                );
-              }
-            }
-          }
-        }
-      }
-    }
-
-    if (!savedFile) {
-      if (window._moriDownloadCancelled) {
-        if (Filesystem) {
-          for (const dir of directoriesToTry) {
-            await Filesystem.deleteFile({
-              path: fullPath + "/" + `${fileName}.tmp`,
-              directory: dir,
-            }).catch(() => {});
-          }
-        }
-        cancelDownloadProgressToast();
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = originalContent;
-        }
-        if (progressContainer) progressContainer.classList.add("hidden");
-        return;
-      }
-      // Clean up any remaining .tmp files across directories
-      if (Filesystem) {
-        for (const dir of directoriesToTry) {
-          await Filesystem.deleteFile({
-            path: fullPath + "/" + `${fileName}.tmp`,
-            directory: dir,
-          }).catch(() => {});
-        }
-      }
-      throw new Error(
-        translations[currentLang]["toast-download-failed"] || "Download failed",
-      );
-    }
-
-    if (window._moriActiveSimInterval) {
-      clearInterval(window._moriActiveSimInterval);
-      window._moriActiveSimInterval = null;
-    }
-
-    if (window._moriDownloadCancelled) {
-      // File may have been partially/fully written — delete it
-      if (Filesystem && savedFile) {
-        for (const dir of directoriesToTry) {
-          await Filesystem.deleteFile({
-            path: savedFile.path,
-            directory: dir,
-          }).catch(() => {});
-        }
-      }
-      cancelDownloadProgressToast();
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = originalContent;
-      }
-      if (progressContainer) progressContainer.classList.add("hidden");
-      return;
-    }
-
-    updateProgress(100, "Downloading...");
-    if (btn) {
-      const b = btn.querySelector(".dl-badge");
-      if (b) {
-        b.textContent = "SAVED";
-      } else {
-        btn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="margin-right:8px"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> SAVED`;
-      }
-    }
-
-    // Trigger Haptic & Sound Feedback
-    triggerHaptic("success");
-    playCompletionSound();
-
-    // Auto-Clear Input Box after Download
-    autoClearInputBox();
-
-    // Resolve absolute URI for gallery and preview
-    let savedUri = savedFile.uri || savedFile.path;
-    if (
-      !savedUri.startsWith("file://") &&
-      !savedUri.startsWith("_capacitor_file_") &&
-      window.Capacitor
-    ) {
-      try {
-        const uriObj = await Filesystem.getUri({
-          path: savedFile.path,
-          directory: successfulDir,
-        });
-        if (uriObj?.uri) savedUri = uriObj.uri;
-      } catch (_) {}
-    }
-
-    window.dispatchEvent(
-      new CustomEvent("mori_file_saved", {
-        detail: {
-          url: sourceUrl || url,
-          path: savedFile.path,
-          uri: savedUri,
-          title: effectiveTitle,
-        },
-      }),
-    );
-
-    // Morph the progress toast into the Saved confirmation toast seamlessly!
-    const completeTitle =
-      translations[currentLang]["toast-download-complete"] ||
-      "Download Complete";
-    completeDownloadProgressToast(
-      completeTitle,
-      `/Download/${targetFolder}`,
-      3000,
-    );
-
-    // Trigger System Tray Notification when download finishes
-    if (window.MoriMainBridge?.showCompleteNotification) {
-      try {
-        window.MoriMainBridge.showCompleteNotification(
-          effectiveTitle,
-          `/Download/${targetFolder}/${fileName}`,
-        );
-      } catch (e) {}
-    }
-
-    setTimeout(() => {
-      if (btn) {
-        btn.disabled = false;
-        const b = btn.querySelector(".dl-badge");
-        if (b) {
-          b.textContent =
-            translations[currentLang]["label-download"] || "DOWNLOAD";
-        } else {
-          btn.innerHTML = originalContent;
-        }
-      }
-      progressContainer?.classList.add("hidden");
-    }, 2500);
-  } catch (err) {
-    console.error("Download failed", err);
-    if (window._moriActiveSimInterval) {
-      clearInterval(window._moriActiveSimInterval);
-      window._moriActiveSimInterval = null;
-    }
-    let errorMsg = err?.message || "Download failed";
-    if (
-      errorMsg.includes("Network") ||
-      errorMsg.includes("timeout") ||
-      errorMsg.includes("connection")
-    ) {
-      errorMsg =
-        translations[currentLang]["toast-connection-lost"] ||
-        "Network connection error";
-    }
-
-    // Morph progress toast into Error toast seamlessly!
-    failDownloadProgressToast(errorMsg, 3500);
-
-    // Trigger System Tray Notification when download fails
-    if (window.MoriMainBridge?.showFailedNotification) {
-      try {
-        window.MoriMainBridge.showFailedNotification(
-          effectiveTitle || "Media",
-          errorMsg,
-        );
-      } catch (e) {}
-    }
-
-    if (btn) {
-      btn.disabled = false;
-      const b = btn.querySelector(".dl-badge");
-      if (b) {
-        b.textContent =
-          translations[currentLang]["label-download"] || "DOWNLOAD";
-      } else {
-        btn.innerHTML = originalContent;
-      }
-    }
-    if (progressContainer) progressContainer.classList.add("hidden");
-  } finally {
-    window._moriActiveDownloadUrl = null;
-    window.dispatchEvent(new CustomEvent("mori_download_ended"));
-    releaseWakeLock();
-    if (window.MoriMainBridge?.stopDownloadService) {
-      try {
-        window.MoriMainBridge.stopDownloadService();
-      } catch (e) {}
-    }
-    if (window._moriActiveSimInterval) {
-      clearInterval(window._moriActiveSimInterval);
-      window._moriActiveSimInterval = null;
-    }
-    if (window._moriProgressListener) {
-      await window._moriProgressListener.remove();
-      window._moriProgressListener = null;
-    }
-  }
-}
+        } else 
